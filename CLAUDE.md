@@ -18,12 +18,15 @@ Core value loop:
 
 | Layer | Technology |
 |---|---|
-| Frontend | TBD |
-| Backend | TBD |
-| Database | TBD |
-| AI/LLM | Anthropic Claude API (claude-sonnet-4-6 default, claude-opus-4-7 for complex drafts) |
-| Auth | TBD |
-| Infra | TBD |
+| Frontend | React + Next.js (SSR) |
+| Backend API | TypeScript / NestJS (Node.js) |
+| AI Processing | Python / FastAPI — heavy NLP jobs, OpenAI GPT APIs |
+| AI/LLM | OpenAI GPT-4o (narratives, summaries, quotes) |
+| Database | PostgreSQL (structured data) + AWS S3 (PDFs, images, video) |
+| Document Gen | Handlebars (templates) + Playwright (PDF rendering) |
+| Auth | Auth0 (RBAC, SSO for B2B tenants) |
+| CRM Integrations | Salesforce, HubSpot, Highspot (via direct connectors or Zapier) |
+| Infra | AWS (Docker containers) |
 | CI/CD | GitHub Actions |
 
 ---

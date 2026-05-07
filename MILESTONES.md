@@ -5,40 +5,64 @@
 
 ---
 
-## Milestone 1 — Foundation
-Status: `not started`
+## M0 — Scaffold
+Status: `not started` | Target: Week 1–2
 
-- [ ] Project scaffolding and repo structure
-- [ ] Auth (SSO/OAuth for B2B tenants)
-- [ ] Data ingestion pipeline (first source)
-- [ ] Basic dashboard shell
-
----
-
-## Milestone 2 — Insight Engine
-Status: `not started`
-
-- [ ] Customer signal aggregation
-- [ ] Impact quantification model
-- [ ] Insight card UI
+- [ ] Monorepo structure (Next.js frontend, NestJS backend, FastAPI service)
+- [ ] Auth0 integration + RBAC roles (ae, csm, gtm_admin, customer_reviewer)
+- [ ] PostgreSQL schema (Tenant, User, Story, CaseDraft, CRMConnection)
+- [ ] AWS S3 bucket config + upload utility
+- [ ] GitHub Actions CI pipeline (lint, type-check, test)
+- [ ] Docker Compose for local dev (all services)
+- [ ] Environment config + secrets management
 
 ---
 
-## Milestone 3 — Case Study Drafting
-Status: `not started`
+## M1 — Ingest
+Status: `not started` | Target: Week 3–5
 
-- [ ] Claude-powered draft generation
-- [ ] Template library (industry/persona/deal-stage)
-- [ ] Human-in-the-loop review + edit flow
+- [ ] Manual "Log a Win" entry form (CSM/AE-facing)
+- [ ] Story data model + PostgreSQL migrations
+- [ ] Document upload (PDF, DOCX, PPTX → S3 + text extraction)
+- [ ] Python/FastAPI extraction service (GPT-4o structured parse)
+- [ ] HubSpot OAuth connector + closed-won deal sync
+- [ ] Daily HubSpot sync job (new closed-won → draft story cards)
 
 ---
 
-## Milestone 4 — Sales Activation
-Status: `not started`
+## M2 — Generate
+Status: `not started` | Target: Week 6–8
 
-- [ ] CRM integration (Salesforce / HubSpot)
-- [ ] Asset delivery to reps (Slack, email, in-app)
-- [ ] Usage analytics (what's working in deals)
+- [ ] Enrichment pipeline (impact quantification, quote extraction, ICP tagging)
+- [ ] Draft generation endpoint (template + persona → GPT-4o → Markdown)
+- [ ] Case study templates (full, one-pager)
+- [ ] Internal review queue UI (GTM admin)
+- [ ] Customer reviewer flow (Auth0-gated email link, approve/reject)
+- [ ] Story state machine (draft → internal_review → customer_review → approved)
+
+---
+
+## M3 — Activate
+Status: `not started` | Target: Week 9–11
+
+- [ ] Story library UI (grid view, filters, full-text search)
+- [ ] Story detail view
+- [ ] Handlebars PDF templates (full case study + one-pager)
+- [ ] Playwright PDF rendering service
+- [ ] PDF download + shareable S3 link
+- [ ] Deal-close email nudge (HubSpot webhook → send CSM email with pre-filled form link)
+
+---
+
+## M4 — Harden
+Status: `not started` | Target: Week 12
+
+- [ ] RBAC enforcement audit (no cross-tenant data leakage)
+- [ ] Customer reviewer isolation (read-only, scoped to their own story)
+- [ ] Error handling + retry logic (pipeline failures)
+- [ ] Staging environment deploy (AWS ECS or EC2)
+- [ ] Smoke test suite
+- [ ] GDPR/CCPA consent stub (data retention policy fields)
 
 ---
 
