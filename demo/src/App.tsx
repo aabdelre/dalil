@@ -412,8 +412,7 @@ function App() {
       <section className="workspace">
         <header className="topbar">
           <div>
-            <span className="eyebrow">Dalil</span>
-            <h1>{view === 'dashboard' ? 'Customer Portfolio' : view === 'customer' ? selected.name : 'Company proof memory'}</h1>
+            <h1>{view === 'dashboard' ? 'Customer Portfolio' : view === 'customer' ? selected.name : 'Company Proof Memory'}</h1>
           </div>
           <div className="topbar-actions">
             <button className="search-button"><Search size={17} /> Search proof</button>
@@ -424,19 +423,13 @@ function App() {
         <section className="page">
           {view === 'dashboard' && (
             <>
-              <div className="summary-strip">
-                <Stat label="Customers tracked" value={stats.customers} icon={<Building2 size={18} />} />
-                <Stat label="Interactions logged" value={stats.interactions} icon={<Activity size={18} />} />
-                <Stat label="Proof points" value={stats.proof} icon={<Sparkles size={18} />} />
-                <Stat label="Collateral assets" value={stats.assets} icon={<FileText size={18} />} />
-              </div>
-
               <section className="dashboard-hero">
                 <div>
                   <span className="eyebrow">Capture → Structure → Activate</span>
                   <h2>Every customer gets a proof profile and an agent with full relationship context.</h2>
                   <p>Use the dashboard to see closed customers, ongoing relationships, and active prospects that need the right proof to move forward.</p>
                 </div>
+
                 <div className="source-pills">
                   <span><Upload size={15} /> Uploads</span>
                   <span><Mail size={15} /> Email</span>
@@ -445,8 +438,15 @@ function App() {
                 </div>
               </section>
 
+              <div className="summary-strip">
+                <Stat label="Customers tracked" value={stats.customers} icon={<Building2 size={18} />} />
+                <Stat label="Interactions logged" value={stats.interactions} icon={<Activity size={18} />} />
+                <Stat label="Proof points" value={stats.proof} icon={<Sparkles size={18} />} />
+                <Stat label="Collateral assets" value={stats.assets} icon={<FileText size={18} />} />
+              </div>
+
               <div className="section-head">
-                <h2>Customer cards</h2>
+                <h2>Customer Cards</h2>
                 <button className="secondary"><Filter size={16} /> Filter</button>
               </div>
               <div className="customer-grid">
