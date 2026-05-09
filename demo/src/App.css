@@ -641,9 +641,13 @@ h3 {
   width: 100%;
 }
 
-.insight-list {
+.insight-list,
+.proof-collateral {
   display: grid;
   gap: 12px;
+}
+
+.insight-list {
   margin-bottom: 16px;
 }
 
@@ -768,6 +772,151 @@ h3 {
 .chat-actions button:disabled {
   opacity: .55;
   cursor: not-allowed;
+}
+
+.proof-modal {
+  width: min(760px, 100%);
+  max-height: calc(100vh - 48px);
+}
+
+.proof-body {
+  padding: 18px 24px;
+  overflow-y: auto;
+  display: grid;
+  gap: 16px;
+}
+
+.proof-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.badge.proof-status-active {
+  background: #eef6f2;
+  color: #1f654d;
+}
+
+.badge.proof-status-needs-refresh {
+  background: #fff5db;
+  color: #8c6515;
+}
+
+.badge.proof-status-retired {
+  background: #f3eded;
+  color: #8a3f3f;
+}
+
+.proof-quote {
+  border-left: 3px solid #e3c45b;
+  padding: 6px 0 6px 14px;
+  font-size: 16px;
+  color: #17211d;
+}
+
+.proof-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.proof-stat {
+  border: 1px solid #e3e0d8;
+  border-radius: 10px;
+  padding: 12px;
+  background: #fbfaf7;
+  display: grid;
+  gap: 4px;
+}
+
+.proof-stat span {
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: #68756f;
+}
+
+.proof-stat strong {
+  font-size: 18px;
+  color: #17211d;
+}
+
+.proof-section {
+  border-top: 1px solid #e3e0d8;
+  padding-top: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.proof-section h3 {
+  font-size: 13px;
+  font-weight: 850;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: #247354;
+  margin: 0;
+}
+
+.proof-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.proof-fields .wide-info {
+  grid-column: span 2;
+}
+
+.chip-block {
+  display: grid;
+  gap: 6px;
+}
+
+.chip-label {
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: #68756f;
+}
+
+.chip-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.chip-row span {
+  border: 1px solid #e1ded5;
+  border-radius: 999px;
+  background: #fbfaf7;
+  padding: 6px 10px;
+  color: #45534d;
+  font-size: 12px;
+}
+
+.chip-empty {
+  font-size: 12px;
+  color: #8a948f;
+  font-style: italic;
+}
+
+.proof-card-button {
+  width: 100%;
+  border: 1px solid #e3e0d8;
+  background: #fbfaf7;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  display: grid;
+  gap: 8px;
+}
+
+.proof-card-button:hover {
+  border-color: #bcb39c;
+  background: #ffffff;
 }
 
 .modal-backdrop {
@@ -1214,8 +1363,14 @@ h3 {
   }
 
   .form-grid,
-  .overview-row {
+  .overview-row,
+  .proof-stats,
+  .proof-fields {
     grid-template-columns: 1fr;
+  }
+
+  .proof-fields .wide-info {
+    grid-column: auto;
   }
 
   .funnel-row,

@@ -40,6 +40,8 @@ type Interaction = {
   proofDetected?: boolean
 }
 
+type ProofStatus = 'Active' | 'Needs refresh' | 'Retired'
+
 type ProofPoint = {
   id: string
   claim: string
@@ -50,6 +52,19 @@ type ProofPoint = {
   outcomeType: string
   bestFor: string
   approval: Approval
+  tags: string[]
+  industries: string[]
+  companySizes: string[]
+  personas: string[]
+  dealStages: Stage[]
+  confidence: number
+  dateCaptured: string
+  sourceInteraction: string
+  usageCount: number
+  winRate: number
+  formats: string[]
+  status: ProofStatus
+  counterObjections: string[]
 }
 
 type Collateral = {
@@ -134,6 +149,19 @@ const initialCustomers: Customer[] = [
         outcomeType: 'Operational efficiency',
         bestFor: 'Prospects worried about implementation bandwidth',
         approval: 'Customer Approved',
+        tags: ['onboarding', 'efficiency', 'lean teams'],
+        industries: ['Ecommerce SaaS'],
+        companySizes: ['80-150 employees'],
+        personas: ['VP Operations', 'RevOps'],
+        dealStages: ['Negotiation', 'Closed Won'],
+        confidence: 0.92,
+        dateCaptured: 'May 7, 2026',
+        sourceInteraction: 'QBR transcript',
+        usageCount: 7,
+        winRate: 0.71,
+        formats: ['Customer quote', 'Data point'],
+        status: 'Active',
+        counterObjections: ['Implementation bandwidth', 'Lean team capacity'],
       },
       {
         id: 'p2',
@@ -145,6 +173,19 @@ const initialCustomers: Customer[] = [
         outcomeType: 'Credibility',
         bestFor: 'Founder-led startups formalizing sales',
         approval: 'Internal Only',
+        tags: ['sales enablement', 'process maturity'],
+        industries: ['Ecommerce SaaS', 'Healthcare SaaS'],
+        companySizes: ['80-200 employees'],
+        personas: ['Founder', 'RevOps'],
+        dealStages: ['Discovery', 'Proposal Sent'],
+        confidence: 0.78,
+        dateCaptured: 'Apr 26, 2026',
+        sourceInteraction: 'Renewal email from Maya',
+        usageCount: 3,
+        winRate: 0.66,
+        formats: ['Customer quote'],
+        status: 'Active',
+        counterObjections: ['Founder dependency'],
       },
     ],
     collateral: [
@@ -236,6 +277,19 @@ const initialCustomers: Customer[] = [
         outcomeType: 'Adoption speed',
         bestFor: 'Prospects comparing against larger incumbents',
         approval: 'Public',
+        tags: ['displacement', 'speed-to-value', 'incumbent'],
+        industries: ['Fintech'],
+        companySizes: ['100-250 employees'],
+        personas: ['Head of Revenue', 'COO'],
+        dealStages: ['Negotiation', 'Closed Won', 'Expansion'],
+        confidence: 0.95,
+        dateCaptured: 'May 8, 2026',
+        sourceInteraction: 'Expansion planning meeting',
+        usageCount: 12,
+        winRate: 0.83,
+        formats: ['Customer quote', 'Data point', 'Video clip'],
+        status: 'Active',
+        counterObjections: ['Why not the larger vendor?', 'Implementation drag'],
       },
     ],
     collateral: [
@@ -285,6 +339,19 @@ const initialCustomers: Customer[] = [
         outcomeType: 'Implementation',
         bestFor: 'Prospects with lean ops or low implementation capacity',
         approval: 'Internal Only',
+        tags: ['lean ops', 'change management'],
+        industries: ['Healthcare SaaS'],
+        companySizes: ['50-100 employees'],
+        personas: ['COO', 'CS Lead'],
+        dealStages: ['Discovery', 'Security Review'],
+        confidence: 0.81,
+        dateCaptured: 'May 1, 2026',
+        sourceInteraction: 'Customer interview notes',
+        usageCount: 4,
+        winRate: 0.75,
+        formats: ['Customer quote'],
+        status: 'Needs refresh',
+        counterObjections: ['Change management overhead'],
       },
     ],
     collateral: [],
@@ -309,6 +376,87 @@ type CustomerDraft = {
   objection: string
 }
 
+type ProofDraft = {
+  id: string
+  claim: string
+  sourceCustomer: string
+  metric: string
+  quote: string
+  useCase: string
+  outcomeType: string
+  bestFor: string
+  approval: Approval
+  tags: string
+  industries: string
+  companySizes: string
+  personas: string
+  dealStages: string
+  confidence: string
+  dateCaptured: string
+  sourceInteraction: string
+  usageCount: string
+  winRate: string
+  formats: string
+  status: ProofStatus
+  counterObjections: string
+}
+
+function proofToDraft(proof: ProofPoint): ProofDraft {
+  return {
+    id: proof.id,
+    claim: proof.claim,
+    sourceCustomer: proof.sourceCustomer,
+    metric: proof.metric,
+    quote: proof.quote,
+    useCase: proof.useCase,
+    outcomeType: proof.outcomeType,
+    bestFor: proof.bestFor,
+    approval: proof.approval,
+    tags: proof.tags.join(', '),
+    industries: proof.industries.join(', '),
+    companySizes: proof.companySizes.join(', '),
+    personas: proof.personas.join(', '),
+    dealStages: proof.dealStages.join(', '),
+    confidence: String(Math.round(proof.confidence * 100)),
+    dateCaptured: proof.dateCaptured,
+    sourceInteraction: proof.sourceInteraction,
+    usageCount: String(proof.usageCount),
+    winRate: String(Math.round(proof.winRate * 100)),
+    formats: proof.formats.join(', '),
+    status: proof.status,
+    counterObjections: proof.counterObjections.join(', '),
+  }
+}
+
+function draftToProof(draft: ProofDraft): ProofPoint {
+  const splitCsv = (value: string) => value.split(',').map((entry) => entry.trim()).filter(Boolean)
+  const clamp01 = (value: string) => Math.max(0, Math.min(100, parseInt(value, 10) || 0)) / 100
+  return {
+    id: draft.id,
+    claim: draft.claim,
+    sourceCustomer: draft.sourceCustomer,
+    metric: draft.metric,
+    quote: draft.quote,
+    useCase: draft.useCase,
+    outcomeType: draft.outcomeType,
+    bestFor: draft.bestFor,
+    approval: draft.approval,
+    tags: splitCsv(draft.tags),
+    industries: splitCsv(draft.industries),
+    companySizes: splitCsv(draft.companySizes),
+    personas: splitCsv(draft.personas),
+    dealStages: splitCsv(draft.dealStages) as Stage[],
+    confidence: clamp01(draft.confidence),
+    dateCaptured: draft.dateCaptured,
+    sourceInteraction: draft.sourceInteraction,
+    usageCount: Math.max(0, parseInt(draft.usageCount, 10) || 0),
+    winRate: clamp01(draft.winRate),
+    formats: splitCsv(draft.formats),
+    status: draft.status,
+    counterObjections: splitCsv(draft.counterObjections),
+  }
+}
+
 type ChatMessage = { role: 'agent' | 'user'; text: string }
 
 const chatStarters: Record<string, string> = {
@@ -316,6 +464,9 @@ const chatStarters: Record<string, string> = {
   'Generate LinkedIn post': "Sure — what's the angle? A founder POV, a customer win story, or an industry insight grounded in your closed customers?",
   'Generate investor snippet': "Let's tighten this for investors. Are we showing traction (closed ARR, win rate), proof of repeatability (segments), or differentiation (incumbent displacement)?",
   'Generate one-pager': "On it. Should the one-pager be ICP-first, customer-story-first, or competitor-displacement-first? I'll pull from BrightCart, Greenline, and MedPilot for proof.",
+  'What proof is relevant to their main objection?': "Looking at this customer's main objection. Want me to surface the strongest exact match, or pull a few proof points covering different angles of the objection?",
+  'Draft a follow-up email addressing implementation risk': "Got it — drafting a follow-up that addresses implementation risk. Should I lead with a customer story (BrightCart's lean rollout) or with concrete numbers (12-day implementation, 42% less prep)?",
+  "Prepare tomorrow's meeting brief": "On it. For the brief, should I focus on what to cover (talking points), what to ask (discovery questions), or what to show (proof to bring)?",
 }
 
 const stockReplies = [
@@ -353,6 +504,19 @@ const uploadedProof: ProofPoint = {
   outcomeType: 'Sales capacity',
   bestFor: 'Security reviews and procurement calls where bandwidth is the main concern',
   approval: 'Internal Only',
+  tags: ['speed-to-value', 'implementation'],
+  industries: ['Ecommerce SaaS'],
+  companySizes: ['80-150 employees'],
+  personas: ['VP Operations', 'CRO'],
+  dealStages: ['Security Review', 'Negotiation'],
+  confidence: 0.88,
+  dateCaptured: 'Just now',
+  sourceInteraction: 'Historical customer source pack',
+  usageCount: 0,
+  winRate: 0,
+  formats: ['Customer quote', 'Data point'],
+  status: 'Active',
+  counterObjections: ['Procurement bandwidth', 'Sales capacity'],
 }
 
 function App() {
@@ -362,7 +526,6 @@ function App() {
   const [uploadState, setUploadState] = useState<'idle' | 'reading' | 'extracting' | 'done'>('idle')
   const [autoCapture, setAutoCapture] = useState(false)
   const [assetState, setAssetState] = useState<'idle' | 'generating' | 'done'>('idle')
-  const [agentState, setAgentState] = useState<'idle' | 'thinking' | 'done'>('idle')
   const [showNewCustomer, setShowNewCustomer] = useState(false)
   const [draft, setDraft] = useState<CustomerDraft>(emptyDraft)
   const [chatTask, setChatTask] = useState<string | null>(null)
@@ -371,6 +534,9 @@ function App() {
   const [chatThinking, setChatThinking] = useState(false)
   const [chatComplete, setChatComplete] = useState(false)
   const chatBodyRef = useRef<HTMLDivElement>(null)
+  const [selectedProof, setSelectedProof] = useState<ProofPoint | null>(null)
+  const [editingProof, setEditingProof] = useState(false)
+  const [proofDraft, setProofDraft] = useState<ProofDraft | null>(null)
 
   useEffect(() => {
     if (chatBodyRef.current) {
@@ -495,11 +661,6 @@ function App() {
     window.setTimeout(() => setAssetState('done'), 1100)
   }
 
-  function askAgent() {
-    setAgentState('thinking')
-    window.setTimeout(() => setAgentState('done'), 1100)
-  }
-
   function createCustomer(event: React.FormEvent) {
     event.preventDefault()
     const id = draft.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || `customer-${Date.now()}`
@@ -568,6 +729,46 @@ function App() {
     setChatThinking(false)
     setChatComplete(true)
     setChatMessages((current) => [...current, { role: 'agent', text: `Marked "${chatTask}" complete. The asset is saved to your proof library.` }])
+  }
+
+  function openProof(proof: ProofPoint) {
+    setSelectedProof(proof)
+    setEditingProof(false)
+    setProofDraft(null)
+  }
+
+  function closeProof() {
+    setSelectedProof(null)
+    setEditingProof(false)
+    setProofDraft(null)
+  }
+
+  function startEditProof() {
+    if (!selectedProof) return
+    setProofDraft(proofToDraft(selectedProof))
+    setEditingProof(true)
+  }
+
+  function saveProof() {
+    if (!proofDraft) return
+    const updated = draftToProof(proofDraft)
+    setCustomers((current) =>
+      current.map((customer) => ({
+        ...customer,
+        proof: customer.proof.map((point) => (point.id === updated.id ? updated : point)),
+      })),
+    )
+    setSelectedProof(updated)
+    setEditingProof(false)
+    setProofDraft(null)
+  }
+
+  function viewProofCustomer(proof: ProofPoint) {
+    const owner = customers.find((customer) => customer.name === proof.sourceCustomer)
+    closeProof()
+    if (owner) {
+      openCustomer(owner.id)
+    }
   }
 
   return (
@@ -824,31 +1025,25 @@ function App() {
 
               <aside className="right-column">
                 <Section title="Proof & Collateral" action={<button className="secondary" onClick={generateAsset}><Wand2 size={16} /> Generate</button>}>
-                  {selected.proof.length === 0 ? (
-                    <div className="empty-state">
-                      <Sparkles size={22} />
-                      <p>No proof extracted from this prospect yet. Use the agent to retrieve relevant proof from closed customers.</p>
-                    </div>
-                  ) : selected.proof.map((proof) => <ProofCard proof={proof} key={proof.id} />)}
-                  {selected.collateral.map((asset) => <AssetCard asset={asset} key={asset.title} />)}
-                  {assetState === 'generating' && <div className="run-result">Generating case study, proof card, and sales snippet...</div>}
-                  {assetState === 'done' && <AssetCard asset={{ title: 'Implementation risk proof pack', type: 'Generated collateral', status: 'Internal Only', summary: 'Case study draft, quote card, and email-ready snippet created from selected proof.' }} />}
+                  <div className="proof-collateral">
+                    {selected.proof.length === 0 ? (
+                      <div className="empty-state">
+                        <Sparkles size={22} />
+                        <p>No proof extracted from this prospect yet. Use the agent to retrieve relevant proof from closed customers.</p>
+                      </div>
+                    ) : selected.proof.map((proof) => <ProofCard proof={proof} key={proof.id} onClick={() => openProof(proof)} />)}
+                    {selected.collateral.map((asset) => <AssetCard asset={asset} key={asset.title} />)}
+                    {assetState === 'generating' && <div className="run-result">Generating case study, proof card, and sales snippet...</div>}
+                    {assetState === 'done' && <AssetCard asset={{ title: 'Implementation risk proof pack', type: 'Generated collateral', status: 'Internal Only', summary: 'Case study draft, quote card, and email-ready snippet created from selected proof.' }} />}
+                  </div>
                 </Section>
 
                 <Section title="Agent" action={<Bot size={18} />}>
                   <div className="agent-box">
                     <p>This agent knows the customer profile, interactions, proof points, deal stage, personas, objection, and upcoming meetings.</p>
-                    <button onClick={askAgent}>What proof is relevant to their main objection?</button>
-                    <button onClick={askAgent}>Draft a follow-up email addressing implementation risk</button>
-                    <button onClick={askAgent}>Prepare tomorrow's meeting brief</button>
-                    {agentState === 'thinking' && <div className="typing">Reviewing customer context and proof library...</div>}
-                    {agentState === 'done' && (
-                      <div className="agent-answer">
-                        <strong>Recommended proof</strong>
-                        <p>Use BrightCart for implementation bandwidth and MedPilot for lean-team rollout. Both map to the current objection: {selected.objection}</p>
-                        <button className="primary"><Send size={16} /> Insert into follow-up</button>
-                      </div>
-                    )}
+                    <button onClick={() => openChat('What proof is relevant to their main objection?')}>What proof is relevant to their main objection?</button>
+                    <button onClick={() => openChat('Draft a follow-up email addressing implementation risk')}>Draft a follow-up email addressing implementation risk</button>
+                    <button onClick={() => openChat("Prepare tomorrow's meeting brief")}>Prepare tomorrow's meeting brief</button>
                   </div>
                 </Section>
               </aside>
@@ -868,7 +1063,7 @@ function App() {
                   </div>
                   <div className="proof-list">
                     {proofPoints.map((proof) => (
-                      <button className="proof-row" key={proof.id} onClick={() => openCustomer(customers.find((customer) => customer.name === proof.sourceCustomer)?.id ?? 'brightcart')}>
+                      <button className="proof-row" key={proof.id} onClick={() => openProof(proof)}>
                         <div>
                           <strong>{proof.claim}</strong>
                           <p>{proof.sourceCustomer} · {proof.metric}</p>
@@ -985,6 +1180,157 @@ function App() {
         </div>
       )}
 
+      {selectedProof && !editingProof && (
+        <div className="modal-backdrop" onClick={closeProof}>
+          <div className="modal proof-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+            <header className="modal-head">
+              <div>
+                <span className="eyebrow">Proof point · {selectedProof.sourceCustomer}</span>
+                <h2>{selectedProof.claim}</h2>
+              </div>
+              <button type="button" className="modal-close" onClick={closeProof} aria-label="Close">
+                <X size={18} />
+              </button>
+            </header>
+            <div className="proof-body">
+              <div className="proof-badges">
+                <span className={`badge ${selectedProof.approval === 'Internal Only' ? 'prospect' : 'closed'}`}>{selectedProof.approval}</span>
+                <span className={`badge proof-status-${selectedProof.status.toLowerCase().replace(/\s+/g, '-')}`}>{selectedProof.status}</span>
+              </div>
+              <blockquote className="proof-quote">"{selectedProof.quote}"</blockquote>
+              <div className="proof-stats">
+                <div className="proof-stat"><span>Headline metric</span><strong>{selectedProof.metric}</strong></div>
+                <div className="proof-stat"><span>Outcome type</span><strong>{selectedProof.outcomeType}</strong></div>
+                <div className="proof-stat"><span>Confidence</span><strong>{Math.round(selectedProof.confidence * 100)}%</strong></div>
+                <div className="proof-stat"><span>Used in deals</span><strong>{selectedProof.usageCount}×</strong></div>
+                <div className="proof-stat"><span>Win rate when used</span><strong>{Math.round(selectedProof.winRate * 100)}%</strong></div>
+                <div className="proof-stat"><span>Captured</span><strong>{selectedProof.dateCaptured}</strong></div>
+              </div>
+              <section className="proof-section">
+                <h3>Where it lands</h3>
+                <div className="proof-fields">
+                  <Info label="Use case" value={selectedProof.useCase} />
+                  <Info label="Best for" value={selectedProof.bestFor} wide />
+                </div>
+                <ChipRow label="Industries" items={selectedProof.industries} />
+                <ChipRow label="Company sizes" items={selectedProof.companySizes} />
+                <ChipRow label="Personas" items={selectedProof.personas} />
+                <ChipRow label="Deal stages" items={selectedProof.dealStages} />
+                <ChipRow label="Counter-objections" items={selectedProof.counterObjections} />
+              </section>
+              <section className="proof-section">
+                <h3>Source & metadata</h3>
+                <div className="proof-fields">
+                  <Info label="Source customer" value={selectedProof.sourceCustomer} />
+                  <Info label="Source interaction" value={selectedProof.sourceInteraction} />
+                </div>
+                <ChipRow label="Available formats" items={selectedProof.formats} />
+                <ChipRow label="Tags" items={selectedProof.tags} />
+              </section>
+            </div>
+            <footer className="modal-foot">
+              <button type="button" className="secondary" onClick={() => viewProofCustomer(selectedProof)}>View customer</button>
+              <button type="button" className="primary" onClick={startEditProof}>Edit</button>
+            </footer>
+          </div>
+        </div>
+      )}
+
+      {selectedProof && editingProof && proofDraft && (
+        <div className="modal-backdrop" onClick={closeProof}>
+          <div className="modal proof-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+            <header className="modal-head">
+              <div>
+                <span className="eyebrow">Editing proof point</span>
+                <h2>{selectedProof.claim}</h2>
+              </div>
+              <button type="button" className="modal-close" onClick={closeProof} aria-label="Close">
+                <X size={18} />
+              </button>
+            </header>
+            <form className="modal-form" onSubmit={(event) => { event.preventDefault(); saveProof() }}>
+              <div className="form-grid">
+                <Field label="Headline claim" wide required>
+                  <textarea rows={2} value={proofDraft.claim} onChange={(event) => setProofDraft({ ...proofDraft, claim: event.target.value })} required />
+                </Field>
+                <Field label="Customer quote" wide>
+                  <textarea rows={2} value={proofDraft.quote} onChange={(event) => setProofDraft({ ...proofDraft, quote: event.target.value })} />
+                </Field>
+                <Field label="Headline metric">
+                  <input value={proofDraft.metric} onChange={(event) => setProofDraft({ ...proofDraft, metric: event.target.value })} />
+                </Field>
+                <Field label="Outcome type">
+                  <input value={proofDraft.outcomeType} onChange={(event) => setProofDraft({ ...proofDraft, outcomeType: event.target.value })} />
+                </Field>
+                <Field label="Use case" wide>
+                  <input value={proofDraft.useCase} onChange={(event) => setProofDraft({ ...proofDraft, useCase: event.target.value })} />
+                </Field>
+                <Field label="Best for" wide>
+                  <input value={proofDraft.bestFor} onChange={(event) => setProofDraft({ ...proofDraft, bestFor: event.target.value })} />
+                </Field>
+                <Field label="Source customer">
+                  <input value={proofDraft.sourceCustomer} onChange={(event) => setProofDraft({ ...proofDraft, sourceCustomer: event.target.value })} />
+                </Field>
+                <Field label="Source interaction">
+                  <input value={proofDraft.sourceInteraction} onChange={(event) => setProofDraft({ ...proofDraft, sourceInteraction: event.target.value })} />
+                </Field>
+                <Field label="Date captured">
+                  <input value={proofDraft.dateCaptured} onChange={(event) => setProofDraft({ ...proofDraft, dateCaptured: event.target.value })} />
+                </Field>
+                <Field label="Confidence (%)">
+                  <input type="number" min={0} max={100} value={proofDraft.confidence} onChange={(event) => setProofDraft({ ...proofDraft, confidence: event.target.value })} />
+                </Field>
+                <Field label="Times used">
+                  <input type="number" min={0} value={proofDraft.usageCount} onChange={(event) => setProofDraft({ ...proofDraft, usageCount: event.target.value })} />
+                </Field>
+                <Field label="Win rate (%)">
+                  <input type="number" min={0} max={100} value={proofDraft.winRate} onChange={(event) => setProofDraft({ ...proofDraft, winRate: event.target.value })} />
+                </Field>
+                <Field label="Approval">
+                  <select value={proofDraft.approval} onChange={(event) => setProofDraft({ ...proofDraft, approval: event.target.value as Approval })}>
+                    <option value="Internal Only">Internal Only</option>
+                    <option value="Customer Approved">Customer Approved</option>
+                    <option value="Public">Public</option>
+                  </select>
+                </Field>
+                <Field label="Status">
+                  <select value={proofDraft.status} onChange={(event) => setProofDraft({ ...proofDraft, status: event.target.value as ProofStatus })}>
+                    <option value="Active">Active</option>
+                    <option value="Needs refresh">Needs refresh</option>
+                    <option value="Retired">Retired</option>
+                  </select>
+                </Field>
+                <Field label="Industries" wide hint="Comma-separated">
+                  <input value={proofDraft.industries} onChange={(event) => setProofDraft({ ...proofDraft, industries: event.target.value })} />
+                </Field>
+                <Field label="Company sizes" wide hint="Comma-separated">
+                  <input value={proofDraft.companySizes} onChange={(event) => setProofDraft({ ...proofDraft, companySizes: event.target.value })} />
+                </Field>
+                <Field label="Personas" wide hint="Comma-separated">
+                  <input value={proofDraft.personas} onChange={(event) => setProofDraft({ ...proofDraft, personas: event.target.value })} />
+                </Field>
+                <Field label="Deal stages" wide hint="Comma-separated (Discovery, Negotiation, Closed Won, …)">
+                  <input value={proofDraft.dealStages} onChange={(event) => setProofDraft({ ...proofDraft, dealStages: event.target.value })} />
+                </Field>
+                <Field label="Counter-objections" wide hint="Comma-separated">
+                  <textarea rows={2} value={proofDraft.counterObjections} onChange={(event) => setProofDraft({ ...proofDraft, counterObjections: event.target.value })} />
+                </Field>
+                <Field label="Available formats" wide hint="Comma-separated (Customer quote, Data point, Video clip, …)">
+                  <input value={proofDraft.formats} onChange={(event) => setProofDraft({ ...proofDraft, formats: event.target.value })} />
+                </Field>
+                <Field label="Tags" wide hint="Comma-separated">
+                  <input value={proofDraft.tags} onChange={(event) => setProofDraft({ ...proofDraft, tags: event.target.value })} />
+                </Field>
+              </div>
+              <footer className="modal-foot">
+                <button type="button" className="secondary" onClick={() => { setEditingProof(false); setProofDraft(null) }}>Cancel</button>
+                <button type="submit" className="primary">Save changes</button>
+              </footer>
+            </form>
+          </div>
+        </div>
+      )}
+
       {chatTask && (
         <div className="modal-backdrop" onClick={closeChat}>
           <div className="modal chat-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
@@ -1075,7 +1421,17 @@ function iconFor(type: InteractionType) {
   return <FileText size={16} />
 }
 
-function ProofCard({ proof }: { proof: ProofPoint }) {
+function ProofCard({ proof, onClick }: { proof: ProofPoint; onClick?: () => void }) {
+  if (onClick) {
+    return (
+      <button className="proof-card proof-card-button" type="button" onClick={onClick}>
+        <div className="proof-head"><span>{proof.sourceCustomer}</span><em>{proof.approval}</em></div>
+        <strong>{proof.claim}</strong>
+        <p>{proof.metric} · {proof.outcomeType}</p>
+        <blockquote>"{proof.quote}"</blockquote>
+      </button>
+    )
+  }
   return (
     <article className="proof-card">
       <div className="proof-head"><span>{proof.sourceCustomer}</span><em>{proof.approval}</em></div>
@@ -1083,6 +1439,19 @@ function ProofCard({ proof }: { proof: ProofPoint }) {
       <p>{proof.metric} · {proof.outcomeType}</p>
       <blockquote>"{proof.quote}"</blockquote>
     </article>
+  )
+}
+
+function ChipRow({ label, items }: { label: string; items: string[] }) {
+  return (
+    <div className="chip-block">
+      <span className="chip-label">{label}</span>
+      {items.length === 0 ? <em className="chip-empty">None</em> : (
+        <div className="chip-row">
+          {items.map((item) => <span key={item}>{item}</span>)}
+        </div>
+      )}
+    </div>
   )
 }
 
