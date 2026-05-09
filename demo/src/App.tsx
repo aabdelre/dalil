@@ -1,4 +1,4 @@
-import { type ReactNode, useMemo, useState } from 'react'
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Activity,
   Bot,
@@ -309,6 +309,22 @@ type CustomerDraft = {
   objection: string
 }
 
+type ChatMessage = { role: 'agent' | 'user'; text: string }
+
+const chatStarters: Record<string, string> = {
+  'Generate website proof block': "Got it — let's draft a proof block for the website. Which segment should I anchor it to: Series A-B operational SaaS, lean post-sales teams, or incumbent displacement?",
+  'Generate LinkedIn post': "Sure — what's the angle? A founder POV, a customer win story, or an industry insight grounded in your closed customers?",
+  'Generate investor snippet': "Let's tighten this for investors. Are we showing traction (closed ARR, win rate), proof of repeatability (segments), or differentiation (incumbent displacement)?",
+  'Generate one-pager': "On it. Should the one-pager be ICP-first, customer-story-first, or competitor-displacement-first? I'll pull from BrightCart, Greenline, and MedPilot for proof.",
+}
+
+const stockReplies = [
+  'Pulling the relevant proof points now…',
+  'Here is a first draft based on BrightCart, Greenline, and MedPilot:\n\n"Lean teams ship faster when their proof travels with them. Across operational SaaS, our customers reduced onboarding prep by 42%, replaced incumbents in 45 days, and launched new workflows with a two-person team — without extra hiring or process."\n\nWant me to tighten the lead, or pivot to a different angle?',
+  'Updated. The new version emphasizes implementation speed and reads cleaner. Anything else to refine?',
+  'Saved as a draft to your proof library. You can keep iterating or mark this task complete whenever you are ready.',
+]
+
 const emptyDraft: CustomerDraft = {
   name: '',
   logo: '',
@@ -349,6 +365,18 @@ function App() {
   const [agentState, setAgentState] = useState<'idle' | 'thinking' | 'done'>('idle')
   const [showNewCustomer, setShowNewCustomer] = useState(false)
   const [draft, setDraft] = useState<CustomerDraft>(emptyDraft)
+  const [chatTask, setChatTask] = useState<string | null>(null)
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
+  const [chatInput, setChatInput] = useState('')
+  const [chatThinking, setChatThinking] = useState(false)
+  const [chatComplete, setChatComplete] = useState(false)
+  const chatBodyRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (chatBodyRef.current) {
+      chatBodyRef.current.scrollTop = chatBodyRef.current.scrollHeight
+    }
+  }, [chatMessages, chatThinking, chatComplete])
 
   const selected = customers.find((customer) => customer.id === selectedId) ?? customers[0]
   const proofPoints = customers.flatMap((customer) => customer.proof)
@@ -505,6 +533,41 @@ function App() {
   function closeNewCustomer() {
     setDraft(emptyDraft)
     setShowNewCustomer(false)
+  }
+
+  function openChat(task: string) {
+    setChatTask(task)
+    setChatMessages([{ role: 'agent', text: chatStarters[task] ?? "Got it — let's get started. What angle should I take?" }])
+    setChatInput('')
+    setChatThinking(false)
+    setChatComplete(false)
+  }
+
+  function closeChat() {
+    setChatTask(null)
+    setChatMessages([])
+    setChatInput('')
+    setChatThinking(false)
+    setChatComplete(false)
+  }
+
+  function submitChat() {
+    const text = chatInput.trim()
+    if (!text || chatThinking || chatComplete) return
+    const userTurn = chatMessages.filter((message) => message.role === 'user').length
+    setChatMessages((current) => [...current, { role: 'user', text }])
+    setChatInput('')
+    setChatThinking(true)
+    window.setTimeout(() => {
+      setChatThinking(false)
+      setChatMessages((current) => [...current, { role: 'agent', text: stockReplies[userTurn % stockReplies.length] }])
+    }, 900)
+  }
+
+  function completeChat() {
+    setChatThinking(false)
+    setChatComplete(true)
+    setChatMessages((current) => [...current, { role: 'agent', text: `Marked "${chatTask}" complete. The asset is saved to your proof library.` }])
   }
 
   return (
@@ -820,14 +883,16 @@ function App() {
 
               <aside className="right-column">
                 <Section title="Strengths & Insights" action={<Sparkles size={18} />}>
-                  <Insight title="You consistently win on implementation speed" detail="BrightCart, MedPilot, and Greenline all mention fast rollout or reduced process drag." />
-                  <Insight title="Strongest segment: Series A-B operational SaaS" detail="The highest-confidence proof comes from teams with 80-220 employees and lean operations teams." />
-                  <Insight title="Common objection overcome: incumbent trust" detail="Greenline and BrightCart show how younger vendors win when proof is specific to the prospect's situation." />
+                  <div className="insight-list">
+                    <Insight title="You consistently win on implementation speed" detail="BrightCart, MedPilot, and Greenline all mention fast rollout or reduced process drag." />
+                    <Insight title="Strongest segment: Series A-B operational SaaS" detail="The highest-confidence proof comes from teams with 80-220 employees and lean operations teams." />
+                    <Insight title="Common objection overcome: incumbent trust" detail="Greenline and BrightCart show how younger vendors win when proof is specific to the prospect's situation." />
+                  </div>
                   <div className="general-assets">
-                    <button>Generate website proof block</button>
-                    <button>Generate LinkedIn post</button>
-                    <button>Generate investor snippet</button>
-                    <button>Generate one-pager</button>
+                    <button onClick={() => openChat('Generate website proof block')}>Generate website proof block</button>
+                    <button onClick={() => openChat('Generate LinkedIn post')}>Generate LinkedIn post</button>
+                    <button onClick={() => openChat('Generate investor snippet')}>Generate investor snippet</button>
+                    <button onClick={() => openChat('Generate one-pager')}>Generate one-pager</button>
                   </div>
                 </Section>
               </aside>
@@ -915,6 +980,54 @@ function App() {
                 <button type="button" className="secondary" onClick={closeNewCustomer}>Cancel</button>
                 <button type="submit" className="primary">Create customer</button>
               </footer>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {chatTask && (
+        <div className="modal-backdrop" onClick={closeChat}>
+          <div className="modal chat-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+            <header className="modal-head">
+              <div>
+                <span className="eyebrow">Agent</span>
+                <h2>{chatTask}</h2>
+              </div>
+              <button type="button" className="modal-close" onClick={closeChat} aria-label="Close">
+                <X size={18} />
+              </button>
+            </header>
+            <div className="chat-body" ref={chatBodyRef}>
+              {chatMessages.map((message, index) => (
+                <div className={`chat-msg ${message.role}`} key={index}>
+                  {message.role === 'agent' && <div className="chat-avatar"><Bot size={16} /></div>}
+                  <p>{message.text}</p>
+                </div>
+              ))}
+              {chatThinking && (
+                <div className="chat-msg agent">
+                  <div className="chat-avatar"><Bot size={16} /></div>
+                  <p className="chat-typing">Thinking…</p>
+                </div>
+              )}
+              {chatComplete && <div className="chat-complete"><CheckCircle2 size={16} /> Task complete</div>}
+            </div>
+            <form
+              className="chat-foot"
+              onSubmit={(event) => { event.preventDefault(); submitChat() }}
+            >
+              <textarea
+                rows={1}
+                value={chatInput}
+                onChange={(event) => setChatInput(event.target.value)}
+                placeholder={chatComplete ? 'Task complete — close to start a new one' : 'Reply to the agent…'}
+                disabled={chatComplete}
+                onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); submitChat() } }}
+              />
+              <div className="chat-actions">
+                <button type="button" className="secondary" onClick={completeChat} disabled={chatComplete}>Mark complete</button>
+                <button type="submit" className="primary" disabled={chatComplete || !chatInput.trim() || chatThinking}><Send size={16} /> Send</button>
+              </div>
             </form>
           </div>
         </div>
