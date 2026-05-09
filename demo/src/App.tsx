@@ -399,6 +399,7 @@ function App() {
           <div className="brand-mark">د</div>
           <div>
             <strong>Dalil</strong>
+            <></>
             <span>Proof memory for B2B startups</span>
           </div>
         </div>
