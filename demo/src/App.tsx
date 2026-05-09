@@ -5,6 +5,7 @@ import {
   Building2,
   CalendarClock,
   CheckCircle2,
+  ChevronLeft,
   ChevronRight,
   Clock3,
   FileText,
@@ -341,7 +342,7 @@ const uploadedProof: ProofPoint = {
 function App() {
   const [view, setView] = useState<View>('dashboard')
   const [customers, setCustomers] = useState(initialCustomers)
-  const [selectedId, setSelectedId] = useState('brightcart')
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [uploadState, setUploadState] = useState<'idle' | 'reading' | 'extracting' | 'done'>('idle')
   const [autoCapture, setAutoCapture] = useState(false)
   const [assetState, setAssetState] = useState<'idle' | 'generating' | 'done'>('idle')
@@ -360,6 +361,46 @@ function App() {
     }),
     [customers, proofPoints.length],
   )
+
+  const overview = useMemo(() => {
+    const parseValueK = (value: string) => {
+      const match = value.match(/\$(\d+(?:\.\d+)?)K/i)
+      return match ? parseFloat(match[1]) : 0
+    }
+    const activePipeline = customers.filter((customer) => customer.status !== 'Closed').reduce((sum, customer) => sum + parseValueK(customer.value), 0)
+    const closedArr = customers.filter((customer) => customer.status === 'Closed').reduce((sum, customer) => sum + parseValueK(customer.value), 0)
+    const closedWithDates = customers.filter((customer) => customer.status === 'Closed' && customer.startDate && customer.closeDate)
+    const avgCycle = closedWithDates.length
+      ? Math.round(
+          closedWithDates.reduce((sum, customer) => sum + (Date.parse(customer.closeDate) - Date.parse(customer.startDate)) / 86_400_000, 0) /
+            closedWithDates.length,
+        )
+      : 0
+    const stages: Stage[] = ['Discovery', 'Proposal Sent', 'Security Review', 'Negotiation', 'Closed Won', 'Expansion']
+    const byStage = stages.map((stage) => ({ stage, count: customers.filter((customer) => customer.stage === stage).length }))
+    const maxStage = Math.max(1, ...byStage.map((row) => row.count))
+    const industryCounts = customers.reduce<Record<string, number>>((accumulator, customer) => {
+      accumulator[customer.industry] = (accumulator[customer.industry] ?? 0) + 1
+      return accumulator
+    }, {})
+    const byIndustry = Object.entries(industryCounts).sort((a, b) => b[1] - a[1])
+    const byStatus: { status: CustomerStatus; count: number }[] = (['Prospect', 'Ongoing', 'Closed'] as CustomerStatus[]).map((status) => ({
+      status,
+      count: customers.filter((customer) => customer.status === status).length,
+    }))
+    const recentSignals = customers
+      .filter((customer) => customer.interactions.length > 0)
+      .map((customer) => ({ customerId: customer.id, customerName: customer.name, ...customer.interactions[0] }))
+      .slice(0, 6)
+    const coverageGaps = customers.filter((customer) => customer.status === 'Prospect' && customer.proof.length === 0)
+    const objections = customers
+      .filter((customer) => customer.objection)
+      .map((customer) => ({ id: customer.id, customer: customer.name, status: customer.status, objection: customer.objection }))
+    return { activePipeline, closedArr, avgCycle, byStage, maxStage, byIndustry, byStatus, recentSignals, coverageGaps, objections }
+  }, [customers])
+
+  const activeCount = customers.filter((customer) => customer.status !== 'Closed').length
+  const closedCount = customers.length - activeCount
 
   function openCustomer(id: string) {
     setSelectedId(id)
@@ -478,7 +519,7 @@ function App() {
         </div>
         <nav>
           <NavButton active={view === 'dashboard'} icon={<Building2 size={18} />} label="Dashboard" onClick={() => setView('dashboard')} />
-          <NavButton active={view === 'customer'} icon={<Layers3 size={18} />} label="Customer Page" onClick={() => setView('customer')} />
+          <NavButton active={view === 'customer'} icon={<Layers3 size={18} />} label="Customer Page" onClick={() => { setSelectedId(null); setView('customer') }} />
           <NavButton active={view === 'library'} icon={<ShieldCheck size={18} />} label="Proof Library" onClick={() => setView('library')} />
         </nav>
       </aside>
@@ -486,7 +527,7 @@ function App() {
       <section className="workspace">
         <header className="topbar">
           <div>
-            <h1>{view === 'dashboard' ? 'Customer Portfolio' : view === 'customer' ? selected.name : 'Company Proof Memory'}</h1>
+            <h1>{view === 'dashboard' ? 'Customer Portfolio' : view === 'customer' ? (selectedId ? selected.name : 'All customers') : 'Company Proof Memory'}</h1>
           </div>
           <div className="topbar-actions">
             {view !== 'dashboard' && <button className="search-button"><Search size={17} /> Search proof</button>}
@@ -546,9 +587,131 @@ function App() {
             </>
           )}
 
-          {view === 'customer' && (
+          {view === 'customer' && !selectedId && (
+            <>
+              <section className="dashboard-hero">
+                <div>
+                  <span className="eyebrow">Customer pulse</span>
+                  <h2>Where your portfolio stands today.</h2>
+                  <p>Aggregate signals across every customer relationship — pipeline, momentum, gaps, and objections in one place. Click any row to drill into a customer.</p>
+                </div>
+                <div className="overview-kpis">
+                  <article className="kpi">
+                    <span>Active pipeline</span>
+                    <strong>${overview.activePipeline}K</strong>
+                    <em>across {activeCount} {activeCount === 1 ? 'account' : 'accounts'}</em>
+                  </article>
+                  <article className="kpi">
+                    <span>Closed ARR</span>
+                    <strong>${overview.closedArr}K</strong>
+                    <em>{closedCount} {closedCount === 1 ? 'win' : 'wins'}</em>
+                  </article>
+                  <article className="kpi">
+                    <span>Avg deal cycle</span>
+                    <strong>{overview.avgCycle} days</strong>
+                    <em>start → close</em>
+                  </article>
+                </div>
+              </section>
+
+              <Section title="Pipeline by stage">
+                <div className="funnel">
+                  {overview.byStage.map(({ stage, count }) => (
+                    <div className="funnel-row" key={stage}>
+                      <span>{stage}</span>
+                      <div className="funnel-bar"><span style={{ width: `${(count / overview.maxStage) * 100}%` }} /></div>
+                      <strong>{count}</strong>
+                    </div>
+                  ))}
+                </div>
+              </Section>
+
+              <div className="overview-row">
+                <Section title="Industry mix">
+                  <div className="breakdown">
+                    {overview.byIndustry.map(([industry, count]) => (
+                      <div className="breakdown-row" key={industry}>
+                        <span>{industry}</span>
+                        <div className="breakdown-bar"><span style={{ width: `${(count / customers.length) * 100}%` }} /></div>
+                        <strong>{count}</strong>
+                      </div>
+                    ))}
+                  </div>
+                </Section>
+
+                <Section title="Status mix">
+                  <div className="breakdown">
+                    {overview.byStatus.map(({ status, count }) => (
+                      <div className={`breakdown-row status-${status.toLowerCase()}`} key={status}>
+                        <span>{status}</span>
+                        <div className="breakdown-bar"><span style={{ width: `${(count / Math.max(1, customers.length)) * 100}%` }} /></div>
+                        <strong>{count}</strong>
+                      </div>
+                    ))}
+                  </div>
+                </Section>
+              </div>
+
+              <Section title="Recent customer signals" action={<Activity size={18} />}>
+                {overview.recentSignals.length === 0 ? (
+                  <div className="empty-state"><Sparkles size={22} /><p>No interactions logged yet. Add customers and capture signals to see them here.</p></div>
+                ) : (
+                  <div className="signal-list">
+                    {overview.recentSignals.map((signal) => (
+                      <button className="signal-item" key={signal.customerId + signal.title} onClick={() => openCustomer(signal.customerId)}>
+                        <div className="timeline-icon">{iconFor(signal.type)}</div>
+                        <div>
+                          <strong>{signal.customerName}</strong>
+                          <span>{signal.title} · {signal.type} · {signal.date}</span>
+                          <p>{signal.summary}</p>
+                        </div>
+                        {signal.proofDetected && <em>Proof detected</em>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </Section>
+
+              <div className="overview-row">
+                <Section title="Coverage gaps" action={<ShieldCheck size={18} />}>
+                  {overview.coverageGaps.length === 0 ? (
+                    <div className="empty-state"><CheckCircle2 size={22} /><p>Every active prospect has at least one proof point attached.</p></div>
+                  ) : (
+                    <div className="gap-list">
+                      {overview.coverageGaps.map((customer) => (
+                        <button className="gap-row" key={customer.id} onClick={() => openCustomer(customer.id)}>
+                          <div>
+                            <strong>{customer.name}</strong>
+                            <span>{customer.stage} · {customer.industry}</span>
+                          </div>
+                          <em>{customer.objection || 'No objection captured'}</em>
+                          <ChevronRight size={16} />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </Section>
+
+                <Section title="Objections you're hearing" action={<MessageSquareText size={18} />}>
+                  <div className="objection-list">
+                    {overview.objections.map((row) => (
+                      <button className="objection-row" key={row.id} onClick={() => openCustomer(row.id)}>
+                        <strong>"{row.objection}"</strong>
+                        <span>{row.customer} · {row.status}</span>
+                      </button>
+                    ))}
+                  </div>
+                </Section>
+              </div>
+            </>
+          )}
+
+          {view === 'customer' && selectedId && (
             <div className="customer-layout">
               <div className="main-column">
+                <button className="back-link" onClick={() => setSelectedId(null)}>
+                  <ChevronLeft size={16} /> All customers
+                </button>
                 <Section title="Overview" action={<span className={`badge ${selected.status.toLowerCase()}`}>{selected.status}</span>}>
                   <div className="overview-grid">
                     <Info label="Industry" value={selected.industry} />
