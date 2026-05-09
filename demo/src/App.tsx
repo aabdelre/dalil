@@ -397,9 +397,8 @@ function App() {
       <aside className="sidebar">
         <div className="brand">
           <div className="brand-mark">د</div>
-          <div>
+          <div className="brand-text">
             <strong>Dalil</strong>
-            <></>
             <span>Proof memory for B2B startups</span>
           </div>
         </div>
@@ -408,17 +407,13 @@ function App() {
           <NavButton active={view === 'customer'} icon={<Layers3 size={18} />} label="Customer Page" onClick={() => setView('customer')} />
           <NavButton active={view === 'library'} icon={<ShieldCheck size={18} />} label="Proof Library" onClick={() => setView('library')} />
         </nav>
-        <div className="sidebar-note">
-          <span>Demo story</span>
-          <p>NovaStack has 28 happy customers but scattered proof across calls, emails, notes, and founder memory.</p>
-        </div>
       </aside>
 
       <section className="workspace">
         <header className="topbar">
           <div>
             <span className="eyebrow">Dalil</span>
-            <h1>{view === 'dashboard' ? 'Customer portfolio' : view === 'customer' ? selected.name : 'Company proof memory'}</h1>
+            <h1>{view === 'dashboard' ? 'Customer Portfolio' : view === 'customer' ? selected.name : 'Company proof memory'}</h1>
           </div>
           <div className="topbar-actions">
             <button className="search-button"><Search size={17} /> Search proof</button>
@@ -608,7 +603,7 @@ function App() {
 }
 
 function NavButton({ active, icon, label, onClick }: { active: boolean; icon: ReactNode; label: string; onClick: () => void }) {
-  return <button className={active ? 'active' : ''} onClick={onClick}>{icon}{label}</button>
+  return <button className={active ? 'active' : ''} onClick={onClick}>{icon}<span className="nav-label">{label}</span></button>
 }
 
 function Stat({ label, value, icon }: { label: string; value: number; icon: ReactNode }) {

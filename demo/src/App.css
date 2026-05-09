@@ -1,18 +1,60 @@
 .app-shell {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 270px minmax(0, 1fr);
+  grid-template-columns: 72px minmax(0, 1fr);
   background: #f6f5f1;
   color: #17211d;
 }
 
 .sidebar {
-  padding: 24px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 72px;
+  padding: 24px 12px;
   background: #17211d;
   color: #f4f7f5;
   display: flex;
   flex-direction: column;
   gap: 28px;
+  overflow: hidden;
+  z-index: 20;
+  transition: width .22s ease;
+}
+
+.sidebar:hover {
+  width: 270px;
+  padding: 24px;
+  box-shadow: 8px 0 28px rgba(0, 0, 0, .28);
+}
+
+.brand-text {
+  opacity: 0;
+  transition: opacity .12s ease;
+}
+
+.nav-label {
+  white-space: nowrap;
+}
+
+.sidebar:hover .brand-text {
+  opacity: 1;
+  transition-delay: .08s;
+}
+
+.sidebar:not(:hover) .brand {
+  justify-content: center;
+}
+
+.sidebar:not(:hover) .brand-text,
+.sidebar:not(:hover) .nav-label {
+  display: none;
+}
+
+.sidebar:not(:hover) nav button {
+  justify-content: center;
+  padding: 0;
 }
 
 .brand,
@@ -43,9 +85,14 @@ nav button,
   gap: 12px;
 }
 
+.brand-text {
+  display: grid;
+}
+
 .brand-mark {
   width: 42px;
   height: 42px;
+  flex-shrink: 0;
   border-radius: 10px;
   display: grid;
   place-items: center;
@@ -136,6 +183,7 @@ nav button:hover {
 
 .workspace {
   min-width: 0;
+  grid-column: 2;
 }
 
 .topbar {
@@ -602,6 +650,38 @@ h3 {
   .customer-grid,
   .overview-grid {
     grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    position: static;
+    width: auto;
+    padding: 24px;
+    box-shadow: none;
+  }
+
+  .workspace {
+    grid-column: auto;
+  }
+
+  .brand-text {
+    opacity: 1;
+  }
+
+  .sidebar:not(:hover) .brand {
+    justify-content: flex-start;
+  }
+
+  .sidebar:not(:hover) .brand-text {
+    display: grid;
+  }
+
+  .sidebar:not(:hover) .nav-label {
+    display: inline;
+  }
+
+  .sidebar:not(:hover) nav button {
+    justify-content: flex-start;
+    padding: 0 12px;
   }
 
   .topbar {
