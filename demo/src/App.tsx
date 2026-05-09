@@ -21,6 +21,7 @@ import {
   Sparkles,
   Upload,
   Wand2,
+  X,
 } from 'lucide-react'
 import './App.css'
 
@@ -289,6 +290,42 @@ const initialCustomers: Customer[] = [
   },
 ]
 
+type CustomerDraft = {
+  name: string
+  logo: string
+  industry: string
+  size: string
+  website: string
+  contacts: string
+  status: CustomerStatus
+  stage: Stage
+  health: 'Strong' | 'Stable' | 'Needs attention'
+  value: string
+  startDate: string
+  closeDate: string
+  competitor: string
+  personas: string
+  objection: string
+}
+
+const emptyDraft: CustomerDraft = {
+  name: '',
+  logo: '',
+  industry: '',
+  size: '',
+  website: '',
+  contacts: '',
+  status: 'Prospect',
+  stage: 'Discovery',
+  health: 'Stable',
+  value: '',
+  startDate: '',
+  closeDate: '',
+  competitor: '',
+  personas: '',
+  objection: '',
+}
+
 const uploadedProof: ProofPoint = {
   id: 'p5',
   claim: 'Kept implementation under two weeks while sales stayed focused on active pipeline.',
@@ -309,6 +346,8 @@ function App() {
   const [autoCapture, setAutoCapture] = useState(false)
   const [assetState, setAssetState] = useState<'idle' | 'generating' | 'done'>('idle')
   const [agentState, setAgentState] = useState<'idle' | 'thinking' | 'done'>('idle')
+  const [showNewCustomer, setShowNewCustomer] = useState(false)
+  const [draft, setDraft] = useState<CustomerDraft>(emptyDraft)
 
   const selected = customers.find((customer) => customer.id === selectedId) ?? customers[0]
   const proofPoints = customers.flatMap((customer) => customer.proof)
@@ -392,6 +431,41 @@ function App() {
     window.setTimeout(() => setAgentState('done'), 1100)
   }
 
+  function createCustomer(event: React.FormEvent) {
+    event.preventDefault()
+    const id = draft.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || `customer-${Date.now()}`
+    const customer: Customer = {
+      id,
+      name: draft.name.trim(),
+      logo: (draft.logo.trim() || draft.name.trim().slice(0, 2)).toUpperCase(),
+      status: draft.status,
+      stage: draft.stage,
+      health: draft.health,
+      industry: draft.industry,
+      size: draft.size,
+      website: draft.website,
+      contacts: draft.contacts.split(/[\n,]/).map((value) => value.trim()).filter(Boolean),
+      value: draft.value,
+      startDate: draft.startDate,
+      closeDate: draft.closeDate,
+      competitor: draft.competitor,
+      personas: draft.personas.split('\n').map((value) => value.trim()).filter(Boolean),
+      lastActivity: 'Just added',
+      objection: draft.objection,
+      interactions: [],
+      proof: [],
+      collateral: [],
+    }
+    setCustomers((current) => [customer, ...current])
+    setDraft(emptyDraft)
+    setShowNewCustomer(false)
+  }
+
+  function closeNewCustomer() {
+    setDraft(emptyDraft)
+    setShowNewCustomer(false)
+  }
+
   return (
     <main className="app-shell">
       <aside className="sidebar">
@@ -415,8 +489,8 @@ function App() {
             <h1>{view === 'dashboard' ? 'Customer Portfolio' : view === 'customer' ? selected.name : 'Company Proof Memory'}</h1>
           </div>
           <div className="topbar-actions">
-            <button className="search-button"><Search size={17} /> Search proof</button>
-            <button className="primary"><Plus size={18} /> New customer</button>
+            {view !== 'dashboard' && <button className="search-button"><Search size={17} /> Search proof</button>}
+            <button className="primary" onClick={() => setShowNewCustomer(true)}><Plus size={18} /> New customer</button>
           </div>
         </header>
 
@@ -598,6 +672,90 @@ function App() {
           )}
         </section>
       </section>
+
+      {showNewCustomer && (
+        <div className="modal-backdrop" onClick={closeNewCustomer}>
+          <div className="modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+            <header className="modal-head">
+              <div>
+                <span className="eyebrow">Customer</span>
+                <h2>New customer</h2>
+              </div>
+              <button type="button" className="modal-close" onClick={closeNewCustomer} aria-label="Close">
+                <X size={18} />
+              </button>
+            </header>
+            <form className="modal-form" onSubmit={createCustomer}>
+              <div className="form-grid">
+                <Field label="Customer name" required>
+                  <input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} required placeholder="BrightCart" />
+                </Field>
+                <Field label="Logo (initials)" hint="Auto from name if blank">
+                  <input value={draft.logo} onChange={(event) => setDraft({ ...draft, logo: event.target.value })} maxLength={3} placeholder="BC" />
+                </Field>
+                <Field label="Industry">
+                  <input value={draft.industry} onChange={(event) => setDraft({ ...draft, industry: event.target.value })} placeholder="Healthcare SaaS" />
+                </Field>
+                <Field label="Size">
+                  <input value={draft.size} onChange={(event) => setDraft({ ...draft, size: event.target.value })} placeholder="120 employees" />
+                </Field>
+                <Field label="Website" wide>
+                  <input value={draft.website} onChange={(event) => setDraft({ ...draft, website: event.target.value })} placeholder="brightcart.io" />
+                </Field>
+                <Field label="Status">
+                  <select value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value as CustomerStatus })}>
+                    <option value="Prospect">Prospect</option>
+                    <option value="Ongoing">Ongoing</option>
+                    <option value="Closed">Closed</option>
+                  </select>
+                </Field>
+                <Field label="Stage">
+                  <select value={draft.stage} onChange={(event) => setDraft({ ...draft, stage: event.target.value as Stage })}>
+                    <option value="Discovery">Discovery</option>
+                    <option value="Proposal Sent">Proposal Sent</option>
+                    <option value="Security Review">Security Review</option>
+                    <option value="Negotiation">Negotiation</option>
+                    <option value="Closed Won">Closed Won</option>
+                    <option value="Expansion">Expansion</option>
+                  </select>
+                </Field>
+                <Field label="Health">
+                  <select value={draft.health} onChange={(event) => setDraft({ ...draft, health: event.target.value as 'Strong' | 'Stable' | 'Needs attention' })}>
+                    <option value="Strong">Strong</option>
+                    <option value="Stable">Stable</option>
+                    <option value="Needs attention">Needs attention</option>
+                  </select>
+                </Field>
+                <Field label="Deal value">
+                  <input value={draft.value} onChange={(event) => setDraft({ ...draft, value: event.target.value })} placeholder="$48K ARR" />
+                </Field>
+                <Field label="Start date">
+                  <input value={draft.startDate} onChange={(event) => setDraft({ ...draft, startDate: event.target.value })} placeholder="Jan 12, 2026" />
+                </Field>
+                <Field label="Expected close">
+                  <input value={draft.closeDate} onChange={(event) => setDraft({ ...draft, closeDate: event.target.value })} placeholder="Mar 4, 2026" />
+                </Field>
+                <Field label="Competitor displaced" wide>
+                  <input value={draft.competitor} onChange={(event) => setDraft({ ...draft, competitor: event.target.value })} placeholder="Incumbent or internal process" />
+                </Field>
+                <Field label="Main contacts" wide hint="One per line or comma-separated">
+                  <textarea rows={2} value={draft.contacts} onChange={(event) => setDraft({ ...draft, contacts: event.target.value })} placeholder="Maya Patel, VP Ops" />
+                </Field>
+                <Field label="Personas" wide hint="One per line">
+                  <textarea rows={3} value={draft.personas} onChange={(event) => setDraft({ ...draft, personas: event.target.value })} placeholder="VP Operations: reduce launch drag" />
+                </Field>
+                <Field label="Main objection" wide>
+                  <input value={draft.objection} onChange={(event) => setDraft({ ...draft, objection: event.target.value })} placeholder="Implementation bandwidth" />
+                </Field>
+              </div>
+              <footer className="modal-foot">
+                <button type="button" className="secondary" onClick={closeNewCustomer}>Cancel</button>
+                <button type="submit" className="primary">Create customer</button>
+              </footer>
+            </form>
+          </div>
+        </div>
+      )}
     </main>
   )
 }
@@ -616,6 +774,16 @@ function Section({ title, action, children }: { title: string; action?: ReactNod
 
 function Info({ label, value, wide = false }: { label: string; value: string; wide?: boolean }) {
   return <div className={`info ${wide ? 'wide-info' : ''}`}><span>{label}</span><strong>{value}</strong></div>
+}
+
+function Field({ label, children, wide = false, required = false, hint }: { label: string; children: ReactNode; wide?: boolean; required?: boolean; hint?: string }) {
+  return (
+    <label className={`field ${wide ? 'wide-field' : ''}`}>
+      <span>{label}{required && <em>*</em>}</span>
+      {children}
+      {hint && <small>{hint}</small>}
+    </label>
+  )
 }
 
 function Process({ state }: { state: 'reading' | 'extracting' | 'done' }) {
