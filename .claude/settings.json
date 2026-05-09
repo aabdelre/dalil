@@ -17,18 +17,5 @@
       "Bash(gh repo*)",
       "Bash(gh auth status*)"
     ]
-  },
-  "hooks": {
-    "Stop": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash /Users/aabdelre/Desktop/dalil/.claude/hooks/auto-commit.sh"
-          }
-        ]
-      }
-    ]
   }
 }
