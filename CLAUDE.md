@@ -84,9 +84,11 @@ Claude Code operates autonomously on this project. These rules govern all work s
 
 ## Git Workflow
 
-Claude commits and pushes on every task completion. Follow this protocol exactly:
+**Claude must NOT commit or push on its own.** Only run `git commit` or `git push` when the user explicitly asks ("commit this", "push it", etc.). Read-only git commands (`status`, `diff`, `log`) are fine anytime.
 
-### Commit Format
+When a task is done: summarize what changed, suggest a commit message if useful, and stop. Let the user trigger the commit.
+
+### Commit Format (when asked)
 Use [Conventional Commits](https://www.conventionalcommits.org/):
 ```
 <type>(<scope>): <short imperative description>
@@ -98,12 +100,11 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
 
 **Types:** `feat` · `fix` · `chore` · `refactor` · `test` · `docs` · `ci`
 
-### Per-Task Git Protocol
-After completing any discrete task:
+### Per-Task Git Protocol (when explicitly requested)
 ```bash
 git add <specific files>          # never git add -A blindly
 git commit -m "feat(scope): ..."  # conventional commit
-git push origin main              # push immediately
+git push origin main              # only if the user asked to push
 ```
 
 ### Branch Strategy
@@ -169,7 +170,7 @@ Always enable `cache_control` on large system prompts and static context blocks 
 Remote: `https://github.com/aabdelre/dalil.git`  
 Branch: `main`
 
-The Stop hook (`.claude/hooks/auto-commit.sh`) auto-commits and pushes any uncommitted changes at the end of each Claude turn as a safety net. This does NOT replace explicit per-task commits — those should always happen first with proper conventional commit messages.
+⚠️ A Stop hook at `.claude/hooks/auto-commit.sh` (wired up in `.claude/settings.json`) auto-commits and pushes uncommitted changes at the end of every Claude turn. This **conflicts with the "no auto-commit" rule above** — it's harness automation, not Claude's choice. To honor the rule fully, disable it by removing the `Stop` block from `.claude/settings.json` (and optionally deleting the script).
 
 To verify GitHub CLI is authenticated:
 ```bash
