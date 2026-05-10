@@ -23,7 +23,7 @@ import {
 } from 'lucide-react'
 import './App.css'
 
-type View = 'dashboard' | 'customerInsights' | 'customerDetail' | 'library'
+type View = 'dashboard' | 'customerInsights' | 'customerDetail' | 'library' | 'collaterals'
 type CustomerSubView = 'insights' | 'proofs'
 type CustomerStatus = 'Active Deal' | 'Onboarding' | 'Live' | 'Expanding' | 'At Risk' | 'Closed' | 'Closed Lost'
 type Approval = 'Internal Only' | 'Customer Approved' | 'Public'
@@ -139,6 +139,21 @@ type Collateral = {
   goal?: string
   focus?: string
   referenceProof?: string
+  communicates?: string
+  metric?: string
+  audience?: string
+  channel?: string
+}
+
+type CollateralRow = {
+  id: string
+  asset: Collateral
+  customer: Customer | null
+  servedCustomer: string
+  communicates: string
+  metric: string
+  audience: string
+  channel: string
 }
 
 type CollateralDraft = {
@@ -939,6 +954,11 @@ function App() {
   const [proofDraft, setProofDraft] = useState<ProofDraft | null>(null)
   const [dashboardStatus, setDashboardStatus] = useState<CustomerStatus | 'All'>('All')
   const [libraryProofFilter, setLibraryProofFilter] = useState<ProofAsset['type'] | 'All'>('All')
+  const [collateralCustomerFilter, setCollateralCustomerFilter] = useState('All')
+  const [collateralCommunicationFilter, setCollateralCommunicationFilter] = useState('All')
+  const [collateralMetricFilter, setCollateralMetricFilter] = useState('All')
+  const [collateralStatusFilter, setCollateralStatusFilter] = useState<Approval | 'All'>('All')
+  const [collateralTypeFilter, setCollateralTypeFilter] = useState('All')
   const [generalAgentInput, setGeneralAgentInput] = useState('')
   const [generalAgentMessages, setGeneralAgentMessages] = useState<ChatMessage[]>([])
   const [generalAgentHistory, setGeneralAgentHistory] = useState<string[]>([])
@@ -949,6 +969,10 @@ function App() {
   const [customerAgentHistory, setCustomerAgentHistory] = useState<string[]>([])
   const [customerAgentView, setCustomerAgentView] = useState<'current' | 'history'>('current')
   const [customerAgentThinking, setCustomerAgentThinking] = useState(false)
+  const [collateralAgentInput, setCollateralAgentInput] = useState('')
+  const [collateralAgentMessages, setCollateralAgentMessages] = useState<ChatMessage[]>([])
+  const [collateralAgentThinking, setCollateralAgentThinking] = useState(false)
+  const [customGeneralCollaterals, setCustomGeneralCollaterals] = useState<Collateral[]>([])
   const [timelineView, setTimelineView] = useState<'condensed' | 'comprehensive'>('condensed')
   const [dataTab, setDataTab] = useState<DataTab>('Emails')
   const [selectedDataPoint, setSelectedDataPoint] = useState<CustomerDataPoint | null>(null)
@@ -988,8 +1012,17 @@ function App() {
   const libraryProofAssets = customers.flatMap(buildProofAssets)
   const visibleLibraryProofAssets = libraryProofFilter === 'All' ? libraryProofAssets : libraryProofAssets.filter((asset) => asset.type === libraryProofFilter)
   const libraryCustomerCollaterals = customers.flatMap((customer) => customer.collateral.map((asset) => ({ customer, asset })))
-  const libraryGeneralCollaterals = buildGeneralCollaterals(customers)
+  const libraryGeneralCollaterals = [...customGeneralCollaterals, ...buildGeneralCollaterals(customers)]
   const libraryProofGroups = buildLibraryProofGroups(libraryProofAssets, customers)
+  const collateralRows = buildCollateralRows(customers, libraryGeneralCollaterals)
+  const collateralFilterOptions = buildCollateralFilterOptions(collateralRows)
+  const visibleCollateralRows = collateralRows.filter((row) =>
+    (collateralCustomerFilter === 'All' || row.servedCustomer === collateralCustomerFilter) &&
+    (collateralCommunicationFilter === 'All' || row.communicates === collateralCommunicationFilter) &&
+    (collateralMetricFilter === 'All' || row.metric === collateralMetricFilter) &&
+    (collateralStatusFilter === 'All' || row.asset.status === collateralStatusFilter) &&
+    (collateralTypeFilter === 'All' || row.asset.type === collateralTypeFilter)
+  )
   const stats = useMemo(
     () => ({
       customers: customers.length,
@@ -1262,6 +1295,32 @@ function App() {
     setCustomerAgentView('current')
   }
 
+  function submitCollateralAgent() {
+    const text = collateralAgentInput.trim()
+    if (!text || collateralAgentThinking) return
+    const turn = collateralAgentMessages.filter((message) => message.role === 'user').length
+    setCollateralAgentInput('')
+    setCollateralAgentMessages((current) => [...current, { role: 'user', text }])
+    setCollateralAgentThinking(true)
+    window.setTimeout(() => {
+      const created = turn > 0 || /create|generate|draft|case|one-pager|website|battlecard/i.test(text)
+      if (created) {
+        const newCollateral = buildAgentCollateral(text, customers, customGeneralCollaterals.length)
+        setCustomGeneralCollaterals((current) => [newCollateral, ...current])
+      }
+      setCollateralAgentMessages((current) => [
+        ...current,
+        {
+          role: 'agent',
+          text: created
+            ? 'I created a new collateral draft and added it to the table. It is tagged as a general asset until you attach it to a specific customer.'
+            : 'I can create a collateral draft from a goal, audience, proof angle, and channel. Tell me what you want to communicate and whether it should be customer-specific or general.',
+        },
+      ])
+      setCollateralAgentThinking(false)
+    }, 1100 + turn * 250)
+  }
+
   function closeProof() {
     setSelectedProof(null)
     setSelectedCustomerProof(null)
@@ -1487,6 +1546,10 @@ function App() {
         goal,
         focus,
         referenceProof: referenceCustomer ? `${referenceCustomer.name}: ${referenceCustomer.proof[0]?.metric ?? 'relevant proof point'}` : 'Previous customer proof library',
+        communicates: inferCommunication(`${focus} ${selected.objection}`, selected),
+        metric: inferMetric(`${focus} ${selected.proof[0]?.metric ?? ''}`, inferCommunication(`${focus} ${selected.objection}`, selected)),
+        audience: 'Sales',
+        channel: 'Sales deck',
       }
       setCustomers((current) =>
         current.map((customer) =>
@@ -1561,13 +1624,14 @@ function App() {
             </div>
           )}
           <NavButton active={view === 'library'} icon={<ShieldCheck size={18} />} label="Proof Library" onClick={() => setView('library')} />
+          <NavButton active={view === 'collaterals'} icon={<FileText size={18} />} label="Collaterals" onClick={() => setView('collaterals')} />
         </nav>
       </aside>
 
       <section className="workspace">
         <header className="topbar">
           <div>
-            <h1>{view === 'dashboard' ? 'Customer Portfolio' : view === 'customerInsights' ? 'Customer Insights' : view === 'customerDetail' ? selected?.name ?? 'Customer' : 'Company Proof Memory'}</h1>
+            <h1>{view === 'dashboard' ? 'Customer Portfolio' : view === 'customerInsights' ? 'Customer Insights' : view === 'customerDetail' ? selected?.name ?? 'Customer' : view === 'collaterals' ? 'Collaterals' : 'Company Proof Memory'}</h1>
           </div>
           <div className="topbar-actions">
             {view !== 'dashboard' && <button className="search-button"><Search size={17} /> Search proof</button>}
@@ -2141,6 +2205,123 @@ function App() {
               </div>
             </div>
           )}
+
+          {view === 'collaterals' && (
+            <div className="collaterals-page">
+              <main className="main-column">
+                <Section title="All Collaterals" action={<span className="table-count">{visibleCollateralRows.length} shown</span>}>
+                  <div className="collateral-filter-grid">
+                    <label>
+                      <span>Customer served</span>
+                      <select value={collateralCustomerFilter} onChange={(event) => setCollateralCustomerFilter(event.target.value)}>
+                        {collateralFilterOptions.customers.map((value) => <option key={value} value={value}>{value}</option>)}
+                      </select>
+                    </label>
+                    <label>
+                      <span>Communicates</span>
+                      <select value={collateralCommunicationFilter} onChange={(event) => setCollateralCommunicationFilter(event.target.value)}>
+                        {collateralFilterOptions.communicates.map((value) => <option key={value} value={value}>{value}</option>)}
+                      </select>
+                    </label>
+                    <label>
+                      <span>Improvement metric</span>
+                      <select value={collateralMetricFilter} onChange={(event) => setCollateralMetricFilter(event.target.value)}>
+                        {collateralFilterOptions.metrics.map((value) => <option key={value} value={value}>{value}</option>)}
+                      </select>
+                    </label>
+                    <label>
+                      <span>Status</span>
+                      <select value={collateralStatusFilter} onChange={(event) => setCollateralStatusFilter(event.target.value as Approval | 'All')}>
+                        {(['All', 'Internal Only', 'Customer Approved', 'Public'] as const).map((value) => <option key={value} value={value}>{value}</option>)}
+                      </select>
+                    </label>
+                    <label>
+                      <span>Type</span>
+                      <select value={collateralTypeFilter} onChange={(event) => setCollateralTypeFilter(event.target.value)}>
+                        {collateralFilterOptions.types.map((value) => <option key={value} value={value}>{value}</option>)}
+                      </select>
+                    </label>
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() => {
+                        setCollateralCustomerFilter('All')
+                        setCollateralCommunicationFilter('All')
+                        setCollateralMetricFilter('All')
+                        setCollateralStatusFilter('All')
+                        setCollateralTypeFilter('All')
+                      }}
+                    >
+                      Clear
+                    </button>
+                  </div>
+
+                  <div className="collateral-table-wrap">
+                    <table className="collateral-table">
+                      <thead>
+                        <tr>
+                          <th>Collateral</th>
+                          <th>Customer</th>
+                          <th>Communicates</th>
+                          <th>Metric</th>
+                          <th>Audience</th>
+                          <th>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {visibleCollateralRows.map((row) => (
+                          <tr key={row.id} onClick={() => { setSelectedCollateral(row.asset); setSelectedCollateralCustomer(row.customer) }}>
+                            <td>
+                              <strong>{row.asset.title}</strong>
+                              <span>{row.asset.type} · {row.channel}</span>
+                            </td>
+                            <td>{row.servedCustomer}</td>
+                            <td>{row.communicates}</td>
+                            <td>{row.metric}</td>
+                            <td>{row.audience}</td>
+                            <td><span className={`badge ${row.asset.status === 'Internal Only' ? 'prospect' : row.asset.status === 'Public' ? 'closed' : 'ongoing'}`}>{row.asset.status}</span></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </Section>
+              </main>
+
+              <aside className="right-column collateral-agent-column">
+                <section className="panel customer-agent-panel">
+                  <div className="agent-topbar">
+                    <button type="button" className="active">
+                      Collateral AI
+                      <span>{collateralAgentMessages.length ? `${collateralAgentMessages.length} messages` : 'Ready to draft'}</span>
+                    </button>
+                  </div>
+                  <div className="dashboard-agent-chat customer-agent-chat">
+                    <div className="customer-agent-context">
+                      <strong>Creates proof-backed collateral</strong>
+                      <span>Uses customer proof, general proof library patterns, audience, channel, and approval status.</span>
+                    </div>
+                    {collateralAgentMessages.length === 0 ? (
+                      <p className="empty-chat">Describe the asset you want: audience, goal, proof angle, and channel.</p>
+                    ) : (
+                      <>
+                        {collateralAgentMessages.map((message, index) => (
+                          <div className={`dashboard-agent-msg ${message.role}`} key={index}>
+                            <p>{message.text}</p>
+                          </div>
+                        ))}
+                        {collateralAgentThinking && <AgentThinking />}
+                      </>
+                    )}
+                  </div>
+                  <form className="dashboard-agent-input customer-agent-input" onSubmit={(event) => { event.preventDefault(); submitCollateralAgent() }}>
+                    <input value={collateralAgentInput} onChange={(event) => setCollateralAgentInput(event.target.value)} placeholder="Create a case study for..." disabled={collateralAgentThinking} />
+                    <button type="submit" aria-label="Send" disabled={collateralAgentThinking || !collateralAgentInput.trim()}><Send size={16} /></button>
+                  </form>
+                </section>
+              </aside>
+            </div>
+          )}
         </section>
       </section>
 
@@ -2334,12 +2515,12 @@ function App() {
         </div>
       )}
 
-      {selectedCollateral && selectedCollateralCustomer && (
+      {selectedCollateral && (
         <div className="modal-backdrop" onClick={closeProof}>
           <div className="modal proof-modal collateral-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
             <header className="modal-head">
               <div>
-                <span className="eyebrow">{selectedCollateral.type} · {selectedCollateralCustomer.name}</span>
+                <span className="eyebrow">{selectedCollateral.type} · {selectedCollateralCustomer?.name ?? 'General'}</span>
                 <h2>{selectedCollateral.title}</h2>
               </div>
               <button type="button" className="modal-close" onClick={closeProof} aria-label="Close">
@@ -2354,7 +2535,7 @@ function App() {
               <section className="proof-section">
                 <h3>Collateral</h3>
                 <div className="collateral-document">
-                  {buildCollateralDocument(selectedCollateralCustomer, selectedCollateral).map((section) => (
+                  {buildCollateralDocument(selectedCollateralCustomer ?? buildCompanyCustomer(customers), selectedCollateral).map((section) => (
                     <article key={section.title}>
                       <h4>{section.title}</h4>
                       {section.lines.map((line) => <p key={line}>{line}</p>)}
@@ -2367,7 +2548,7 @@ function App() {
                 <div className="raw-data-preview">
                   <article className="raw-data-section">
                     <ul>
-                      {buildCollateralContext(selectedCollateralCustomer, selectedCollateral).map((line) => <li key={line}>{line}</li>)}
+                      {buildCollateralContext(selectedCollateralCustomer ?? buildCompanyCustomer(customers), selectedCollateral).map((line) => <li key={line}>{line}</li>)}
                     </ul>
                   </article>
                 </div>
@@ -2742,10 +2923,10 @@ function App() {
               </footer>
             </form>
           </div>
-        </div>
-      )}
+            </div>
+          )}
 
-      {chatTask && (
+          {chatTask && (
         <div className="modal-backdrop" onClick={closeChat}>
           <div className="modal chat-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
             <header className="modal-head">
@@ -2972,6 +3153,137 @@ function buildCustomerAgentReply(
     `Suggested response: "Based on your concern around ${context.objection.toLowerCase()}, I pulled one relevant customer example and one metric. The pattern is that teams already had the proof, but Dalil reduced the effort of finding and using it during active deals."`,
   ]
   return replies[turn % replies.length]
+}
+
+function buildAgentCollateral(input: string, customers: Customer[], index: number): Collateral {
+  const lower = input.toLowerCase()
+  const type = lower.includes('battlecard') ? 'Battlecard' : lower.includes('website') ? 'Website copy' : lower.includes('linkedin') ? 'Marketing post' : lower.includes('one-pager') ? 'Sales one-pager' : 'Case study draft'
+  const communicates = lower.includes('regulation') || lower.includes('compliance') || lower.includes('security')
+    ? 'Handling regulation'
+    : lower.includes('roi') || lower.includes('revenue')
+      ? 'ROI'
+      : lower.includes('implementation') || lower.includes('rollout')
+        ? 'Implementation confidence'
+        : lower.includes('incumbent') || lower.includes('trust')
+          ? 'Incumbent trust'
+          : 'Proof activation'
+  const metric = communicates === 'ROI' ? 'ROI' : communicates === 'Implementation confidence' ? 'Time saved' : communicates === 'Handling regulation' ? 'Risk reduction' : 'Credibility'
+  const referenceCustomer = customers.find((customer) => customer.proof.length > 0)
+  return {
+    title: `AI draft ${index + 1}: ${type}`,
+    type,
+    status: 'Internal Only',
+    summary: `Generated from collateral AI request: "${input}". Uses ${referenceCustomer?.name ?? 'the proof library'} as supporting proof.`,
+    goal: input,
+    focus: communicates,
+    referenceProof: referenceCustomer ? `${referenceCustomer.name}: ${referenceCustomer.proof[0]?.metric ?? 'relevant proof'}` : 'General proof library',
+    communicates,
+    metric,
+    audience: lower.includes('website') || lower.includes('linkedin') ? 'Marketing' : 'Sales',
+    channel: lower.includes('website') ? 'Website' : lower.includes('linkedin') ? 'LinkedIn' : lower.includes('email') ? 'Email' : 'Sales deck',
+  }
+}
+
+function buildCollateralRows(customers: Customer[], generalCollaterals: Collateral[]): CollateralRow[] {
+  const customerRows = customers.flatMap((customer) =>
+    customer.collateral.map((asset, index) => normalizeCollateralRow(asset, customer, `${customer.id}-${index}`)),
+  )
+  const generalRows = generalCollaterals.map((asset, index) => normalizeCollateralRow(asset, null, `general-${index}`))
+  return [...customerRows, ...generalRows]
+}
+
+function buildCompanyCustomer(customers: Customer[]): Customer {
+  const proofCount = customers.reduce((sum, customer) => sum + customer.proofCount, 0)
+  const interactionCount = customers.reduce((sum, customer) => sum + customer.interactionCount, 0)
+  return {
+    id: 'company',
+    name: 'Company-wide proof library',
+    logo: 'D',
+    status: 'Live',
+    stage: 'Expansion',
+    health: 'Stable',
+    industry: 'B2B SaaS',
+    size: `${customers.length} customer profiles`,
+    website: 'dalil.ai',
+    contacts: ['Sales and marketing teams'],
+    value: '',
+    startDate: '',
+    closeDate: '',
+    competitor: '',
+    personas: ['Sales: activate proof', 'Marketing: publish credibility assets'],
+    lastActivity: '',
+    objection: 'Credibility and proof activation',
+    journeySummary: 'Company-wide proof memory assembled from customer data, proof points, and generated collateral.',
+    interactionCount,
+    proofCount,
+    interactions: [],
+    proof: [],
+    collateral: [],
+  }
+}
+
+function normalizeCollateralRow(asset: Collateral, customer: Customer | null, id: string): CollateralRow {
+  const text = `${asset.title} ${asset.type} ${asset.summary} ${asset.focus ?? ''}`.toLowerCase()
+  const communicates = asset.communicates ?? inferCommunication(text, customer)
+  return {
+    id,
+    asset: {
+      ...asset,
+      communicates,
+      metric: asset.metric ?? inferMetric(text, communicates),
+      audience: asset.audience ?? inferAudience(text, asset.type),
+      channel: asset.channel ?? inferChannel(text, asset.type),
+    },
+    customer,
+    servedCustomer: customer?.name ?? 'None',
+    communicates,
+    metric: asset.metric ?? inferMetric(text, communicates),
+    audience: asset.audience ?? inferAudience(text, asset.type),
+    channel: asset.channel ?? inferChannel(text, asset.type),
+  }
+}
+
+function inferCommunication(text: string, customer: Customer | null) {
+  if (text.includes('security') || text.includes('compliance') || text.includes('regulation')) return 'Handling regulation'
+  if (text.includes('implementation') || text.includes('rollout') || text.includes('onboarding')) return 'Implementation confidence'
+  if (text.includes('incumbent') || text.includes('larger vendor') || customer?.objection.toLowerCase().includes('larger vendor')) return 'Incumbent trust'
+  if (text.includes('roi') || text.includes('revenue') || text.includes('arr')) return 'ROI'
+  if (text.includes('proof') || text.includes('credibility')) return 'Credibility'
+  return 'Proof activation'
+}
+
+function inferMetric(text: string, communication: string) {
+  if (text.includes('%') || text.includes('faster') || text.includes('time')) return 'Time saved'
+  if (text.includes('revenue') || text.includes('arr') || communication === 'ROI') return 'ROI'
+  if (text.includes('risk') || communication === 'Handling regulation') return 'Risk reduction'
+  if (text.includes('quote')) return 'Qualitative proof'
+  return 'Credibility'
+}
+
+function inferAudience(text: string, type: string) {
+  if (text.includes('investor')) return 'Investors'
+  if (text.includes('website') || text.includes('linkedin') || type.toLowerCase().includes('marketing')) return 'Marketing'
+  if (text.includes('security') || text.includes('procurement')) return 'Security / Procurement'
+  return 'Sales'
+}
+
+function inferChannel(text: string, type: string) {
+  if (text.includes('website') || type.toLowerCase().includes('website')) return 'Website'
+  if (text.includes('linkedin')) return 'LinkedIn'
+  if (text.includes('email')) return 'Email'
+  if (text.includes('one-pager') || type.toLowerCase().includes('one-pager')) return 'One-pager'
+  if (text.includes('battlecard') || type.toLowerCase().includes('battlecard')) return 'Battlecard'
+  return 'Sales deck'
+}
+
+function buildCollateralFilterOptions(rows: CollateralRow[]) {
+  const options = (values: string[]) => ['All', ...Array.from(new Set(values)).sort()]
+  return {
+    customers: options(rows.map((row) => row.servedCustomer)),
+    communicates: options(rows.map((row) => row.communicates)),
+    metrics: options(rows.map((row) => row.metric)),
+    types: options(rows.map((row) => row.asset.type)),
+  }
 }
 
 function buildUploadedDataPoints(customer: Customer, fileNames: string[], note: string): CustomerDataPoint[] {

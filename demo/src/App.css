@@ -757,6 +757,147 @@ h3 {
   gap: 20px;
 }
 
+.collaterals-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 360px);
+  gap: 20px;
+  align-items: stretch;
+  min-width: 0;
+  min-height: calc(100vh - 113px);
+}
+
+.collaterals-page > .main-column,
+.collaterals-page > .main-column > .panel {
+  min-height: calc(100vh - 113px);
+  height: calc(100vh - 113px);
+}
+
+.collaterals-page > .main-column > .panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.collateral-agent-column {
+  min-height: calc(100vh - 113px);
+  min-width: 0;
+  height: calc(100vh - 113px);
+  display: grid;
+  align-self: stretch;
+}
+
+.collateral-agent-column > .customer-agent-panel {
+  min-height: calc(100vh - 113px);
+  height: calc(100vh - 113px);
+}
+
+.collateral-agent-column .dashboard-agent-chat {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.table-count {
+  border-radius: 999px;
+  background: #eee4d2;
+  color: #5e5142;
+  padding: 5px 9px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.collateral-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  gap: 10px;
+  align-items: end;
+  margin-bottom: 14px;
+  min-width: 0;
+}
+
+.collateral-filter-grid label {
+  display: grid;
+  gap: 5px;
+}
+
+.collateral-filter-grid span {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .02em;
+  color: #8a7d6b;
+  font-weight: 700;
+}
+
+.collateral-filter-grid select {
+  width: 100%;
+  height: 34px;
+  border: 1px solid #d8cbb8;
+  border-radius: 8px;
+  background: #fffdf8;
+  color: #211a14;
+  padding: 0 9px;
+  font: inherit;
+  font-size: 13px;
+}
+
+.collateral-table-wrap {
+  border: 1px solid #e2d8c7;
+  border-radius: 10px;
+  overflow: auto;
+  background: #fffdf8;
+  max-width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.collateral-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 760px;
+}
+
+.collateral-table th,
+.collateral-table td {
+  border-bottom: 1px solid #ede4d5;
+  padding: 10px;
+  text-align: left;
+  vertical-align: top;
+  font-size: 12px;
+}
+
+.collateral-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #fffaf1;
+  color: #8a7d6b;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .02em;
+}
+
+.collateral-table tbody tr {
+  cursor: pointer;
+}
+
+.collateral-table tbody tr:hover {
+  background: #fffaf1;
+}
+
+.collateral-table td:first-child {
+  min-width: 220px;
+}
+
+.collateral-table strong {
+  display: block;
+  color: #211a14;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.collateral-table td span:not(.badge) {
+  color: #8a7d6b;
+}
+
 .main-column,
 .right-column {
   display: grid;
@@ -2806,6 +2947,7 @@ h3 {
   .app-shell,
   .customer-layout,
   .library-layout,
+  .collaterals-page,
   .dashboard-hero,
   .summary-strip,
   .customer-grid,
@@ -2856,6 +2998,7 @@ h3 {
   }
 
   .form-grid,
+  .collateral-filter-grid,
   .overview-row,
   .proof-stats,
   .proof-fields {
@@ -2873,5 +3016,15 @@ h3 {
 
   .gap-row {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1450px) {
+  .collaterals-page {
+    grid-template-columns: minmax(0, 1fr) 330px;
+  }
+
+  .collateral-filter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
   }
 }
