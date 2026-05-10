@@ -566,6 +566,41 @@ h3 {
   color: #ffffff;
 }
 
+.thinking-msg p {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 46px;
+}
+
+.thinking-msg span {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #8a7d6b;
+  animation: thinkingPulse 1s ease-in-out infinite;
+}
+
+.thinking-msg span:nth-child(2) {
+  animation-delay: .14s;
+}
+
+.thinking-msg span:nth-child(3) {
+  animation-delay: .28s;
+}
+
+@keyframes thinkingPulse {
+  0%, 80%, 100% {
+    opacity: .35;
+    transform: translateY(0);
+  }
+
+  40% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
+
 .dashboard-agent-input {
   padding: 10px;
   border-top: 1px solid #e2d8c7;
@@ -1041,6 +1076,21 @@ h3 {
 .upload-parser-note p {
   color: #8a7d6b;
   line-height: 1.45;
+}
+
+.selected-upload-files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.selected-upload-files span {
+  border: 1px solid #e2d8c7;
+  border-radius: 999px;
+  background: #fffaf1;
+  color: #5e5142;
+  font-size: 12px;
+  padding: 7px 10px;
 }
 
 .source-dot {

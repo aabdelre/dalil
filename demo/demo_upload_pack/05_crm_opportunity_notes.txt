@@ -1,0 +1,18 @@
+CRM opportunity notes
+Account: Northstar Ops
+Stage: Security Review
+Value: $52K ARR
+Primary buyer: VP Operations
+Main objection: implementation bandwidth
+Competitor: incumbent enablement workflow and internal Notion database
+
+Close plan:
+- Send short proof-backed example before procurement review.
+- Show how proof can remain internal until customer approval is granted.
+- Prepare talk track around implementation effort for lean operations teams.
+
+Risk:
+Buyer believes the team has strong customer outcomes but does not trust that they can be turned into usable sales material quickly.
+
+Recommended proof:
+Use a similar customer that reduced proof preparation time and gave sales reusable examples without adding headcount.

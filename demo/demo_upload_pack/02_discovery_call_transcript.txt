@@ -1,0 +1,18 @@
+Discovery call transcript
+Customer: Northstar Ops
+Date: April 22, 2026
+
+Nora: What triggered the search for a proof workflow now?
+
+Leila: We have around thirty customers that are happy, but proof is still in call notes, Slack threads, founder memory, and customer emails. Sales keeps asking for examples, and we keep rebuilding the same answer manually.
+
+Nora: Where does that slow the team down most?
+
+Leila: Mid-funnel. A prospect asks whether we have done this for a similar team, and the answer should be obvious, but it takes half a day to find the right example. If Dalil can reduce that to minutes, that is a real win.
+
+Nora: What would success look like after rollout?
+
+Leila: Sales can pull the right story without asking the founder. Marketing can draft a case study from approved proof. Customer success can flag new evidence when it appears instead of waiting for a quarterly project.
+
+Potential quote:
+"The useful proof was already there. It just was not organized."

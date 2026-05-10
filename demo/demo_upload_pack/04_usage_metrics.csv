@@ -1,0 +1,6 @@
+metric,baseline,current,change,source
+time_to_find_relevant_customer_story,4.5 hours,18 minutes,93% faster,revops review
+manual_proof_prep_per_deal,2.1 hours,47 minutes,63% faster,sales enablement audit
+approved_proof_assets,0,14,+14,proof review
+sales_followups_with_customer_example,22%,71%,+49 points,crm activity
+founder_requests_for_customer_examples,18 per month,6 per month,67% lower,founder notes
