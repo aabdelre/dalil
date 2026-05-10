@@ -3,14 +3,12 @@ import {
   Activity,
   Bot,
   Building2,
-  CalendarClock,
   CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Clock3,
   FileText,
-  Filter,
-  Inbox,
   Layers3,
   Mail,
   MessageSquareText,
@@ -21,16 +19,17 @@ import {
   ShieldCheck,
   Sparkles,
   Upload,
-  Wand2,
   X,
 } from 'lucide-react'
 import './App.css'
 
-type View = 'dashboard' | 'customer' | 'library'
-type CustomerStatus = 'Prospect' | 'Closed' | 'Ongoing'
+type View = 'dashboard' | 'customerInsights' | 'customerDetail' | 'library'
+type CustomerSubView = 'insights' | 'proofs'
+type CustomerStatus = 'Active Deal' | 'Onboarding' | 'Live' | 'Expanding' | 'At Risk' | 'Closed' | 'Closed Lost'
 type Approval = 'Internal Only' | 'Customer Approved' | 'Public'
 type Stage = 'Discovery' | 'Proposal Sent' | 'Security Review' | 'Negotiation' | 'Closed Won' | 'Expansion'
 type InteractionType = 'Email' | 'Meeting' | 'Upload' | 'Note' | 'Transcript'
+type DataTab = 'Emails' | 'Call transcripts' | 'Meeting notes' | 'Uploads' | 'CRM notes' | 'Manual notes'
 
 type Interaction = {
   type: InteractionType
@@ -38,6 +37,71 @@ type Interaction = {
   date: string
   summary: string
   proofDetected?: boolean
+}
+
+type CustomerDataPoint = {
+  type: DataTab
+  title: string
+  date: string
+  source: string
+  status: 'Processed' | 'Proof detected' | 'Needs review'
+  signal: string
+  detail: string
+  emailThread?: EmailMessage[]
+  rawSections?: RawDataSection[]
+}
+
+type EmailMessage = {
+  from: string
+  to: string
+  time: string
+  body: string
+}
+
+type RawDataSection = {
+  title: string
+  lines: string[]
+}
+
+type UpcomingItem = {
+  type: 'Meeting' | 'Email' | 'Issue'
+  title: string
+  due: string
+  source: string
+  summary: string
+  context: string[]
+  recommendedAction: string
+}
+
+type ProofAsset = {
+  id: string
+  type: 'Quote' | 'Metric' | 'Outcome' | 'Objection' | 'Sales snippet'
+  text: string
+  source: string
+  approval: Approval
+  parentProof: ProofPoint
+}
+
+type DataSource = {
+  name: string
+  source: string
+  status: 'Connected' | 'Configured' | 'Manual'
+  detail: string
+  cadence: string
+}
+
+type CaptureSourceType = 'Email' | 'Calendar' | 'Calls' | 'CRM' | 'Slack' | 'Manual upload'
+
+type CaptureSetupDraft = {
+  matchTarget: string
+  provider: string
+  rule: string
+}
+
+type UploadDraft = {
+  title: string
+  type: DataTab
+  note: string
 }
 
 type ProofStatus = 'Active' | 'Needs refresh' | 'Retired'
@@ -92,9 +156,26 @@ type Customer = {
   personas: string[]
   lastActivity: string
   objection: string
+  journeySummary: string
+  interactionCount: number
+  proofCount: number
   interactions: Interaction[]
   proof: ProofPoint[]
   collateral: Collateral[]
+}
+
+const customerStatuses: CustomerStatus[] = ['Active Deal', 'Onboarding', 'Live', 'Expanding', 'At Risk', 'Closed', 'Closed Lost']
+const dataTabs: DataTab[] = ['Emails', 'Call transcripts', 'Meeting notes', 'Uploads', 'CRM notes', 'Manual notes']
+const captureSourceOptions: CaptureSourceType[] = ['Email', 'Calendar', 'Calls', 'CRM', 'Slack', 'Manual upload']
+const defaultCaptureSetup: CaptureSetupDraft = {
+  matchTarget: '',
+  provider: '',
+  rule: '',
+}
+const defaultUploadDraft: UploadDraft = {
+  title: '',
+  type: 'Uploads',
+  note: '',
 }
 
 const initialCustomers: Customer[] = [
@@ -102,7 +183,7 @@ const initialCustomers: Customer[] = [
     id: 'brightcart',
     name: 'BrightCart',
     logo: 'BC',
-    status: 'Closed',
+    status: 'Live',
     stage: 'Closed Won',
     health: 'Strong',
     industry: 'Ecommerce SaaS',
@@ -116,6 +197,9 @@ const initialCustomers: Customer[] = [
     personas: ['VP Operations: reduce launch drag', 'RevOps: repeatable proof for sales', 'Founder: compete with larger vendors'],
     lastActivity: 'QBR transcript 2 days ago',
     objection: 'Implementation bandwidth',
+    journeySummary: 'BrightCart helps ecommerce teams manage customer onboarding at scale. They needed a way to reduce launch prep without pulling engineering into every rollout. So far they like the repeatable workflow and faster handoffs, and they have achieved a 42% reduction in onboarding prep with proof strong enough for approved sales collateral.',
+    interactionCount: 46,
+    proofCount: 12,
     interactions: [
       {
         type: 'Transcript',
@@ -196,10 +280,10 @@ const initialCustomers: Customer[] = [
         summary: 'Use when a prospect says implementation will require too much internal bandwidth.',
       },
       {
-        title: 'Lean team onboarding story',
+        title: 'BrightCart case study: lean onboarding at scale',
         type: 'Case study draft',
         status: 'Internal Only',
-        summary: 'Narrative draft from founder notes, transcript, and renewal email.',
+        summary: 'Draft case study showing how BrightCart reduced onboarding prep by 42% while keeping a lean post-sales team.',
       },
     ],
   },
@@ -207,7 +291,7 @@ const initialCustomers: Customer[] = [
     id: 'acme-health',
     name: 'Acme Health',
     logo: 'AH',
-    status: 'Prospect',
+    status: 'Active Deal',
     stage: 'Security Review',
     health: 'Stable',
     industry: 'Healthcare SaaS',
@@ -221,6 +305,9 @@ const initialCustomers: Customer[] = [
     personas: ['VP Operations: scale without process drag', 'Security Lead: low-risk rollout', 'CRO: credible proof before procurement'],
     lastActivity: 'Email received today',
     objection: 'Can this scale without implementation drag?',
+    journeySummary: 'Acme Health is evaluating Dalil while moving through security review. Their team wants confidence that implementation will not create operational drag during procurement. They are most interested in proof from similar healthcare and lean-operations teams, especially examples that show rollout speed and low internal lift.',
+    interactionCount: 18,
+    proofCount: 2,
     interactions: [
       {
         type: 'Meeting',
@@ -243,7 +330,7 @@ const initialCustomers: Customer[] = [
     id: 'greenline',
     name: 'Greenline',
     logo: 'GL',
-    status: 'Ongoing',
+    status: 'Expanding',
     stage: 'Expansion',
     health: 'Strong',
     industry: 'Fintech',
@@ -257,6 +344,9 @@ const initialCustomers: Customer[] = [
     personas: ['Head of Revenue: faster proof in late-stage deals', 'COO: repeatable process', 'Founder: incumbent displacement'],
     lastActivity: 'Meeting yesterday',
     objection: 'Why not use the larger vendor?',
+    journeySummary: 'Greenline uses Dalil to support expansion and competitive sales motions in fintech. They came in needing stronger proof against a larger incumbent and wanted a repeatable way to arm revenue teams. They like the speed of adoption and have already turned the incumbent displacement story into public proof.',
+    interactionCount: 63,
+    proofCount: 9,
     interactions: [
       {
         type: 'Meeting',
@@ -305,7 +395,7 @@ const initialCustomers: Customer[] = [
     id: 'medpilot',
     name: 'MedPilot',
     logo: 'MP',
-    status: 'Closed',
+    status: 'Onboarding',
     stage: 'Closed Won',
     health: 'Stable',
     industry: 'Healthcare SaaS',
@@ -319,6 +409,9 @@ const initialCustomers: Customer[] = [
     personas: ['COO: rollout confidence', 'CS Lead: less manual follow-up'],
     lastActivity: 'Note updated last week',
     objection: 'This may create too much change management.',
+    journeySummary: 'MedPilot is a healthcare SaaS team that needed a lightweight rollout path for a small operations group. Their goal was to prove a new workflow could launch without adding process overhead. The main achievement so far is a credible implementation story around a two-person launch team.',
+    interactionCount: 24,
+    proofCount: 6,
     interactions: [
       {
         type: 'Note',
@@ -356,6 +449,272 @@ const initialCustomers: Customer[] = [
     ],
     collateral: [],
   },
+  {
+    id: 'stacklane',
+    name: 'Stacklane',
+    logo: 'SL',
+    status: 'Live',
+    stage: 'Closed Won',
+    health: 'Strong',
+    industry: 'DevOps tooling',
+    size: '145 employees',
+    website: 'stacklane.dev',
+    contacts: ['Marcus Lee, Head of Engineering', 'Priya Nair, CTO'],
+    value: '$52K ARR',
+    startDate: 'Jan 22, 2026',
+    closeDate: 'Mar 18, 2026',
+    competitor: 'CircleCI',
+    personas: ['Head of Engineering: reduce pipeline drag', 'CTO: prove ROI quickly'],
+    lastActivity: 'Expansion email 4 days ago',
+    objection: 'Will engineering teams adopt another workflow?',
+    journeySummary: 'Stacklane sells DevOps tooling to engineering teams and needed proof that workflow change would produce real technical ROI. They liked that the rollout connected directly to pipeline speed and developer experience. The relationship has produced strong proof around faster CI cycles and migration away from CircleCI.',
+    interactionCount: 38,
+    proofCount: 8,
+    interactions: [
+      {
+        type: 'Email',
+        title: 'Expansion email from Marcus',
+        date: 'May 5',
+        summary: 'Customer shared faster pipeline cycles and lower compute spend.',
+        proofDetected: true,
+      },
+      {
+        type: 'Transcript',
+        title: 'Technical win review',
+        date: 'Apr 16',
+        summary: 'Engineering team compared rollout speed against CircleCI migration plan.',
+        proofDetected: true,
+      },
+    ],
+    proof: [
+      {
+        id: 'p6',
+        claim: 'Cut average CI pipeline time from 18 minutes to 6 minutes.',
+        sourceCustomer: 'Stacklane',
+        metric: '67% faster pipelines',
+        quote: 'Our engineers stopped dreading deployments. That alone is worth it.',
+        useCase: 'Engineering productivity',
+        outcomeType: 'Performance',
+        bestFor: 'DevOps prospects comparing workflow speed and ROI',
+        approval: 'Customer Approved',
+        tags: ['performance', 'engineering', 'cost reduction'],
+        industries: ['DevOps tooling'],
+        companySizes: ['100-200 employees'],
+        personas: ['Head of Engineering', 'CTO'],
+        dealStages: ['Proposal Sent', 'Negotiation'],
+        confidence: 0.9,
+        dateCaptured: 'May 5, 2026',
+        sourceInteraction: 'Expansion email from Marcus',
+        usageCount: 8,
+        winRate: 0.78,
+        formats: ['Customer quote', 'Data point'],
+        status: 'Active',
+        counterObjections: ['Workflow adoption', 'Migration effort'],
+      },
+    ],
+    collateral: [
+      {
+        title: 'Engineering productivity proof card',
+        type: 'Sales snippet',
+        status: 'Customer Approved',
+        summary: 'Pipeline speed proof for technical buyers comparing alternatives.',
+      },
+    ],
+  },
+  {
+    id: 'movo-hr',
+    name: 'Movo HR',
+    logo: 'MV',
+    status: 'Expanding',
+    stage: 'Expansion',
+    health: 'Stable',
+    industry: 'HR Tech',
+    size: '95 employees',
+    website: 'movohr.com',
+    contacts: ['Sophie Turner, Head of People', 'James Park, COO'],
+    value: '$31K ARR',
+    startDate: 'Feb 8, 2026',
+    closeDate: 'Apr 3, 2026',
+    competitor: 'BambooHR',
+    personas: ['Head of People: faster new-hire ramp', 'COO: less admin burden'],
+    lastActivity: 'Slack note yesterday',
+    objection: 'Will managers actually use this?',
+    journeySummary: 'Movo HR focuses on employee onboarding for growing people teams. They needed help proving manager adoption and faster new-hire productivity. They like that the workflow gives managers a repeatable path, and the strongest outcome so far is a shorter ramp from three weeks to nine days.',
+    interactionCount: 41,
+    proofCount: 7,
+    interactions: [
+      {
+        type: 'Note',
+        title: 'Slack note from Sophie',
+        date: 'Yesterday',
+        summary: 'People team shared new-hire productivity gains and manager adoption data.',
+        proofDetected: true,
+      },
+    ],
+    proof: [
+      {
+        id: 'p7',
+        claim: 'Reduced new-hire time-to-productivity from 3 weeks to 9 days.',
+        sourceCustomer: 'Movo HR',
+        metric: '57% faster ramp',
+        quote: 'Managers finally had a repeatable onboarding path they would actually use.',
+        useCase: 'Employee onboarding',
+        outcomeType: 'Time-to-value',
+        bestFor: 'People teams worried about manager adoption',
+        approval: 'Public',
+        tags: ['onboarding', 'manager adoption', 'time-to-value'],
+        industries: ['HR Tech'],
+        companySizes: ['50-150 employees'],
+        personas: ['Head of People', 'COO'],
+        dealStages: ['Discovery', 'Proposal Sent'],
+        confidence: 0.87,
+        dateCaptured: 'May 8, 2026',
+        sourceInteraction: 'Slack note from Sophie',
+        usageCount: 6,
+        winRate: 0.69,
+        formats: ['Customer quote', 'Data point'],
+        status: 'Active',
+        counterObjections: ['Manager adoption'],
+      },
+    ],
+    collateral: [],
+  },
+  {
+    id: 'clearpath',
+    name: 'Clearpath',
+    logo: 'CP',
+    status: 'Active Deal',
+    stage: 'Proposal Sent',
+    health: 'Stable',
+    industry: 'Legal Tech',
+    size: '70 employees',
+    website: 'clearpathlegal.com',
+    contacts: ['Anna Reeves, General Counsel'],
+    value: '$34K ARR',
+    startDate: 'Apr 25, 2026',
+    closeDate: 'Jun 14, 2026',
+    competitor: 'DocuSign CLM',
+    personas: ['General Counsel: shorten contract turnaround', 'CFO: justify switching cost'],
+    lastActivity: 'Proposal sent 5 days ago',
+    objection: 'We need confidence this beats our current CLM process.',
+    journeySummary: 'Clearpath is a legal tech prospect comparing Dalil against their current CLM process. They need help building confidence that switching will reduce contract turnaround without disrupting legal operations. The relationship is still in proposal stage, so the next goal is to activate relevant proof from other ops-heavy customers.',
+    interactionCount: 11,
+    proofCount: 1,
+    interactions: [
+      {
+        type: 'Meeting',
+        title: 'Demo call',
+        date: 'May 3',
+        summary: 'Strong interest, but buyer asked for proof from another ops-heavy team.',
+      },
+      {
+        type: 'Upload',
+        title: 'Proposal package',
+        date: 'May 5',
+        summary: 'Proposal and security notes added to the relationship profile.',
+      },
+    ],
+    proof: [],
+    collateral: [],
+  },
+  {
+    id: 'loopline',
+    name: 'Loopline',
+    logo: 'LL',
+    status: 'Closed',
+    stage: 'Closed Won',
+    health: 'Strong',
+    industry: 'Customer Success',
+    size: '160 employees',
+    website: 'loopline.io',
+    contacts: ['Maya Singh, VP Customer Success', 'Oliver Grant, CEO'],
+    value: '$44K ARR',
+    startDate: 'Nov 17, 2025',
+    closeDate: 'Jan 20, 2026',
+    competitor: 'ChurnZero',
+    personas: ['VP CS: reduce preventable churn', 'CEO: protect expansion revenue'],
+    lastActivity: 'Business review 2 weeks ago',
+    objection: 'Can we prove this will save revenue before renewal season?',
+    journeySummary: 'Loopline supports customer success teams trying to reduce preventable churn. They needed revenue-protection proof before renewal season and liked the visibility Dalil created around risk signals. The relationship produced a strong churn-reduction story and a customer-approved one-pager.',
+    interactionCount: 58,
+    proofCount: 10,
+    interactions: [
+      {
+        type: 'Meeting',
+        title: 'Six-month business review',
+        date: 'Apr 24',
+        summary: 'Customer shared churn reduction and revenue saved from earlier risk detection.',
+        proofDetected: true,
+      },
+    ],
+    proof: [
+      {
+        id: 'p8',
+        claim: 'Reduced churn rate from 8.2% to 3.1% in six months.',
+        sourceCustomer: 'Loopline',
+        metric: '$180K ARR saved',
+        quote: 'We finally have visibility into why customers leave before it is too late.',
+        useCase: 'Churn prevention',
+        outcomeType: 'Revenue saved',
+        bestFor: 'CS leaders who need revenue-protection proof',
+        approval: 'Customer Approved',
+        tags: ['churn reduction', 'revenue saved', 'customer success'],
+        industries: ['Customer Success'],
+        companySizes: ['100-200 employees'],
+        personas: ['VP Customer Success', 'CEO'],
+        dealStages: ['Negotiation', 'Closed Won'],
+        confidence: 0.93,
+        dateCaptured: 'Apr 24, 2026',
+        sourceInteraction: 'Six-month business review',
+        usageCount: 9,
+        winRate: 0.74,
+        formats: ['Customer quote', 'Data point'],
+        status: 'Active',
+        counterObjections: ['ROI before renewal season'],
+      },
+    ],
+    collateral: [
+      {
+        title: 'Churn reduction one-pager',
+        type: 'One-pager',
+        status: 'Customer Approved',
+        summary: 'Revenue-saved proof for CS and CEO conversations.',
+      },
+    ],
+  },
+  {
+    id: 'northbeam-ai',
+    name: 'Northbeam AI',
+    logo: 'NB',
+    status: 'At Risk',
+    stage: 'Negotiation',
+    health: 'Needs attention',
+    industry: 'AI Infrastructure',
+    size: '240 employees',
+    website: 'northbeam.ai',
+    contacts: ['Rachel Kim, VP Marketing', 'Dev Patel, Head of Data'],
+    value: '$82K ARR',
+    startDate: 'Apr 4, 2026',
+    closeDate: 'May 24, 2026',
+    competitor: 'Large cloud incumbent',
+    personas: ['Head of Data: reliability proof', 'VP Marketing: faster analytics delivery'],
+    lastActivity: 'Negotiation call today',
+    objection: 'Why trust a younger vendor for critical infrastructure?',
+    journeySummary: 'Northbeam AI is a late-stage active deal in AI infrastructure. They need proof that a younger vendor can be trusted for critical systems, especially against a large cloud incumbent. The current goal is to use reliability and incumbent-displacement stories to get the deal through negotiation.',
+    interactionCount: 27,
+    proofCount: 3,
+    interactions: [
+      {
+        type: 'Meeting',
+        title: 'Negotiation call',
+        date: 'Today',
+        summary: 'Buyer wants incumbent-displacement proof and references before signature.',
+        proofDetected: true,
+      },
+    ],
+    proof: [],
+    collateral: [],
+  },
 ]
 
 type CustomerDraft = {
@@ -374,6 +733,7 @@ type CustomerDraft = {
   competitor: string
   personas: string
   objection: string
+  journeySummary: string
 }
 
 type ProofDraft = {
@@ -483,7 +843,7 @@ const emptyDraft: CustomerDraft = {
   size: '',
   website: '',
   contacts: '',
-  status: 'Prospect',
+  status: 'Active Deal',
   stage: 'Discovery',
   health: 'Stable',
   value: '',
@@ -492,40 +852,15 @@ const emptyDraft: CustomerDraft = {
   competitor: '',
   personas: '',
   objection: '',
-}
-
-const uploadedProof: ProofPoint = {
-  id: 'p5',
-  claim: 'Kept implementation under two weeks while sales stayed focused on active pipeline.',
-  sourceCustomer: 'BrightCart',
-  metric: '12-day implementation',
-  quote: 'The team did not have to pause selling to make the rollout work.',
-  useCase: 'Implementation risk',
-  outcomeType: 'Sales capacity',
-  bestFor: 'Security reviews and procurement calls where bandwidth is the main concern',
-  approval: 'Internal Only',
-  tags: ['speed-to-value', 'implementation'],
-  industries: ['Ecommerce SaaS'],
-  companySizes: ['80-150 employees'],
-  personas: ['VP Operations', 'CRO'],
-  dealStages: ['Security Review', 'Negotiation'],
-  confidence: 0.88,
-  dateCaptured: 'Just now',
-  sourceInteraction: 'Historical customer source pack',
-  usageCount: 0,
-  winRate: 0,
-  formats: ['Customer quote', 'Data point'],
-  status: 'Active',
-  counterObjections: ['Procurement bandwidth', 'Sales capacity'],
+  journeySummary: '',
 }
 
 function App() {
   const [view, setView] = useState<View>('dashboard')
   const [customers, setCustomers] = useState(initialCustomers)
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [uploadState, setUploadState] = useState<'idle' | 'reading' | 'extracting' | 'done'>('idle')
-  const [autoCapture, setAutoCapture] = useState(false)
-  const [assetState, setAssetState] = useState<'idle' | 'generating' | 'done'>('idle')
+  const [customerSubView, setCustomerSubView] = useState<CustomerSubView>('insights')
+  const [customerListOpen, setCustomerListOpen] = useState(true)
   const [showNewCustomer, setShowNewCustomer] = useState(false)
   const [draft, setDraft] = useState<CustomerDraft>(emptyDraft)
   const [chatTask, setChatTask] = useState<string | null>(null)
@@ -535,8 +870,35 @@ function App() {
   const [chatComplete, setChatComplete] = useState(false)
   const chatBodyRef = useRef<HTMLDivElement>(null)
   const [selectedProof, setSelectedProof] = useState<ProofPoint | null>(null)
+  const [selectedCustomerProof, setSelectedCustomerProof] = useState<ProofAsset | null>(null)
+  const [selectedCustomerProofCustomer, setSelectedCustomerProofCustomer] = useState<Customer | null>(null)
+  const [selectedCollateral, setSelectedCollateral] = useState<Collateral | null>(null)
+  const [selectedCollateralCustomer, setSelectedCollateralCustomer] = useState<Customer | null>(null)
   const [editingProof, setEditingProof] = useState(false)
   const [proofDraft, setProofDraft] = useState<ProofDraft | null>(null)
+  const [dashboardStatus, setDashboardStatus] = useState<CustomerStatus | 'All'>('All')
+  const [libraryProofFilter, setLibraryProofFilter] = useState<ProofAsset['type'] | 'All'>('All')
+  const [generalAgentInput, setGeneralAgentInput] = useState('')
+  const [generalAgentMessages, setGeneralAgentMessages] = useState<ChatMessage[]>([])
+  const [generalAgentHistory, setGeneralAgentHistory] = useState<string[]>([])
+  const [generalAgentView, setGeneralAgentView] = useState<'current' | 'history'>('current')
+  const [customerAgentInput, setCustomerAgentInput] = useState('')
+  const [customerAgentMessages, setCustomerAgentMessages] = useState<ChatMessage[]>([])
+  const [customerAgentHistory, setCustomerAgentHistory] = useState<string[]>([])
+  const [customerAgentView, setCustomerAgentView] = useState<'current' | 'history'>('current')
+  const [timelineView, setTimelineView] = useState<'condensed' | 'comprehensive'>('condensed')
+  const [dataTab, setDataTab] = useState<DataTab>('Emails')
+  const [selectedDataPoint, setSelectedDataPoint] = useState<CustomerDataPoint | null>(null)
+  const [selectedUpcomingItem, setSelectedUpcomingItem] = useState<UpcomingItem | null>(null)
+  const [showSourceSetup, setShowSourceSetup] = useState(false)
+  const [showCustomerUpload, setShowCustomerUpload] = useState(false)
+  const [uploadDraft, setUploadDraft] = useState<UploadDraft>(defaultUploadDraft)
+  const [uploadParsing, setUploadParsing] = useState(false)
+  const [uploadedDataPoints, setUploadedDataPoints] = useState<Record<string, CustomerDataPoint[]>>({})
+  const [captureSourceType, setCaptureSourceType] = useState<CaptureSourceType>('Email')
+  const [captureSetupDraft, setCaptureSetupDraft] = useState<CaptureSetupDraft>(defaultCaptureSetup)
+  const [configuredSourceAdds, setConfiguredSourceAdds] = useState<Record<string, DataSource[]>>({})
+  const [hiddenConfiguredSources, setHiddenConfiguredSources] = useState<Record<string, string[]>>({})
 
   useEffect(() => {
     if (chatBodyRef.current) {
@@ -544,26 +906,43 @@ function App() {
     }
   }, [chatMessages, chatThinking, chatComplete])
 
-  const selected = customers.find((customer) => customer.id === selectedId) ?? customers[0]
-  const proofPoints = customers.flatMap((customer) => customer.proof)
+  const selected = selectedId ? customers.find((customer) => customer.id === selectedId) ?? null : null
+  const selectedInteractions = selected ? buildInteractionHistory(selected) : []
+  const selectedTimelineItems = timelineView === 'condensed' ? keyInteractions(selectedInteractions) : selectedInteractions
+  const selectedDataPoints = selected ? [...(uploadedDataPoints[selected.id] ?? []), ...buildCustomerDataPoints(selected)] : []
+  const selectedDataItems = selectedDataPoints.filter((item) => item.type === dataTab)
+  const selectedDataRows = chunkItems(selectedDataItems, 2)
+  const selectedDataSources = selected ? [...buildDataSources(selected), ...(configuredSourceAdds[selected.id] ?? [])].filter((source) => !(hiddenConfiguredSources[selected.id] ?? []).includes(source.name)) : []
+  const selectedUpcomingItems = selected ? buildUpcomingItems(selected) : []
+  const selectedProofAssets = selected ? buildProofAssets(selected) : []
+  const libraryProofAssets = customers.flatMap(buildProofAssets)
+  const visibleLibraryProofAssets = libraryProofFilter === 'All' ? libraryProofAssets : libraryProofAssets.filter((asset) => asset.type === libraryProofFilter)
+  const libraryCustomerCollaterals = customers.flatMap((customer) => customer.collateral.map((asset) => ({ customer, asset })))
+  const libraryGeneralCollaterals = buildGeneralCollaterals(customers)
+  const libraryProofGroups = buildLibraryProofGroups(libraryProofAssets, customers)
   const stats = useMemo(
     () => ({
       customers: customers.length,
-      interactions: customers.reduce((sum, customer) => sum + customer.interactions.length, 0),
-      proof: proofPoints.length,
-      assets: customers.reduce((sum, customer) => sum + customer.collateral.length, 0),
+      interactions: customers.reduce((sum, customer) => sum + buildInteractionHistory(customer).length, 0),
+      proof: 64,
+      assets: 21,
     }),
-    [customers, proofPoints.length],
+    [customers],
   )
+  const statusCounts = useMemo(
+    () => customerStatuses.map((status) => ({ status, count: customers.filter((customer) => customer.status === status).length })),
+    [customers],
+  )
+  const dashboardCustomers = dashboardStatus === 'All' ? customers : customers.filter((customer) => customer.status === dashboardStatus)
 
   const overview = useMemo(() => {
     const parseValueK = (value: string) => {
       const match = value.match(/\$(\d+(?:\.\d+)?)K/i)
       return match ? parseFloat(match[1]) : 0
     }
-    const activePipeline = customers.filter((customer) => customer.status !== 'Closed').reduce((sum, customer) => sum + parseValueK(customer.value), 0)
-    const closedArr = customers.filter((customer) => customer.status === 'Closed').reduce((sum, customer) => sum + parseValueK(customer.value), 0)
-    const closedWithDates = customers.filter((customer) => customer.status === 'Closed' && customer.startDate && customer.closeDate)
+    const activePipeline = customers.filter((customer) => ['Active Deal', 'At Risk'].includes(customer.status)).reduce((sum, customer) => sum + parseValueK(customer.value), 0)
+    const closedArr = customers.filter((customer) => ['Onboarding', 'Live', 'Expanding', 'Closed'].includes(customer.status)).reduce((sum, customer) => sum + parseValueK(customer.value), 0)
+    const closedWithDates = customers.filter((customer) => ['Onboarding', 'Live', 'Expanding', 'Closed'].includes(customer.status) && customer.startDate && customer.closeDate)
     const avgCycle = closedWithDates.length
       ? Math.round(
           closedWithDates.reduce((sum, customer) => sum + (Date.parse(customer.closeDate) - Date.parse(customer.startDate)) / 86_400_000, 0) /
@@ -578,7 +957,7 @@ function App() {
       return accumulator
     }, {})
     const byIndustry = Object.entries(industryCounts).sort((a, b) => b[1] - a[1])
-    const byStatus: { status: CustomerStatus; count: number }[] = (['Prospect', 'Ongoing', 'Closed'] as CustomerStatus[]).map((status) => ({
+    const byStatus: { status: CustomerStatus; count: number }[] = (['Active Deal', 'Onboarding', 'Live', 'Expanding', 'At Risk', 'Closed', 'Closed Lost'] as CustomerStatus[]).map((status) => ({
       status,
       count: customers.filter((customer) => customer.status === status).length,
     }))
@@ -586,79 +965,51 @@ function App() {
       .filter((customer) => customer.interactions.length > 0)
       .map((customer) => ({ customerId: customer.id, customerName: customer.name, ...customer.interactions[0] }))
       .slice(0, 6)
-    const coverageGaps = customers.filter((customer) => customer.status === 'Prospect' && customer.proof.length === 0)
+    const coverageGaps = customers.filter((customer) => ['Active Deal', 'At Risk'].includes(customer.status) && customer.proof.length === 0)
     const objections = customers
       .filter((customer) => customer.objection)
       .map((customer) => ({ id: customer.id, customer: customer.name, status: customer.status, objection: customer.objection }))
-    return { activePipeline, closedArr, avgCycle, byStage, maxStage, byIndustry, byStatus, recentSignals, coverageGaps, objections }
+    const customersByIndustry = byIndustry.map(([industry]) => ({
+      industry,
+      customers: customers.filter((customer) => customer.industry === industry),
+    }))
+    const proofOpportunities = customers
+      .filter((customer) => customer.proofCount >= 5)
+      .sort((a, b) => b.proofCount - a.proofCount)
+      .slice(0, 4)
+      .map((customer) => ({
+        id: customer.id,
+        title: `${customer.name} has ${customer.proofCount} proof points ready to package`,
+        detail: `${customer.industry} · strongest for ${customer.objection.toLowerCase()} conversations.`,
+      }))
+    const segmentInsights = byIndustry.slice(0, 3).map(([industry, count]) => {
+      const segmentCustomers = customers.filter((customer) => customer.industry === industry)
+      const proofTotal = segmentCustomers.reduce((sum, customer) => sum + customer.proofCount, 0)
+      return {
+        industry,
+        count,
+        proofTotal,
+        detail: `${proofTotal} proof points across ${count} ${count === 1 ? 'customer' : 'customers'}.`,
+      }
+    })
+    const activationPlays = customers
+      .filter((customer) => ['Active Deal', 'At Risk'].includes(customer.status))
+      .slice(0, 4)
+      .map((customer) => ({
+        id: customer.id,
+        title: `Use proof for ${customer.name}`,
+        detail: `${customer.stage} · address "${customer.objection}" before the next touchpoint.`,
+      }))
+    return { activePipeline, closedArr, avgCycle, byStage, maxStage, byIndustry, byStatus, recentSignals, coverageGaps, objections, customersByIndustry, proofOpportunities, segmentInsights, activationPlays }
   }, [customers])
 
-  const activeCount = customers.filter((customer) => customer.status !== 'Closed').length
+  const activeCount = customers.filter((customer) => ['Active Deal', 'At Risk'].includes(customer.status)).length
   const closedCount = customers.length - activeCount
 
   function openCustomer(id: string) {
     setSelectedId(id)
-    setView('customer')
-  }
-
-  function runUpload() {
-    setUploadState('reading')
-    window.setTimeout(() => setUploadState('extracting'), 900)
-    window.setTimeout(() => {
-      setUploadState('done')
-      setCustomers((current) =>
-        current.map((customer) =>
-          customer.id === selected.id
-            ? {
-                ...customer,
-                lastActivity: 'Transcript uploaded just now',
-                interactions: [
-                  {
-                    type: 'Upload',
-                    title: 'Historical customer source pack',
-                    date: 'Just now',
-                    summary: 'Imported transcript, founder notes, renewal email, and usage metrics.',
-                    proofDetected: true,
-                  },
-                  ...customer.interactions,
-                ],
-                proof: customer.proof.some((proof) => proof.id === uploadedProof.id)
-                  ? customer.proof
-                  : [uploadedProof, ...customer.proof],
-              }
-            : customer,
-        ),
-      )
-    }, 1900)
-  }
-
-  function runAutoCapture() {
-    setAutoCapture(true)
-    setCustomers((current) =>
-      current.map((customer) =>
-        customer.id === 'acme-health'
-          ? {
-              ...customer,
-              lastActivity: 'Email auto-captured just now',
-              interactions: [
-                {
-                  type: 'Email',
-                  title: 'Auto-captured email from sarah@acmehealth.com',
-                  date: 'Just now',
-                  summary: 'Matched sender domain to Acme Health and flagged a live implementation objection.',
-                  proofDetected: true,
-                },
-                ...customer.interactions,
-              ],
-            }
-          : customer,
-      ),
-    )
-  }
-
-  function generateAsset() {
-    setAssetState('generating')
-    window.setTimeout(() => setAssetState('done'), 1100)
+    setCustomerSubView('insights')
+    setView('customerDetail')
   }
 
   function createCustomer(event: React.FormEvent) {
@@ -682,6 +1033,9 @@ function App() {
       personas: draft.personas.split('\n').map((value) => value.trim()).filter(Boolean),
       lastActivity: 'Just added',
       objection: draft.objection,
+      journeySummary: draft.journeySummary || 'This customer was just added. Add notes, transcripts, emails, and proof points to build a useful relationship summary.',
+      interactionCount: 0,
+      proofCount: 0,
       interactions: [],
       proof: [],
       collateral: [],
@@ -731,16 +1085,164 @@ function App() {
     setChatMessages((current) => [...current, { role: 'agent', text: `Marked "${chatTask}" complete. The asset is saved to your proof library.` }])
   }
 
-  function openProof(proof: ProofPoint) {
-    setSelectedProof(proof)
-    setEditingProof(false)
-    setProofDraft(null)
+  function submitGeneralAgent() {
+    const text = generalAgentInput.trim()
+    if (!text) return
+    setGeneralAgentInput('')
+    setGeneralAgentMessages((current) => [
+      ...current,
+      { role: 'user', text },
+      {
+        role: 'agent',
+        text: 'I can help with that. For the demo, I would pull from BrightCart for implementation bandwidth, Greenline for incumbent displacement, and Stacklane for technical ROI.',
+      },
+    ])
+  }
+
+  function startNewGeneralChat() {
+    if (generalAgentMessages.length > 0) {
+      const firstUserMessage = generalAgentMessages.find((message) => message.role === 'user')?.text
+      setGeneralAgentHistory((current) => [firstUserMessage || 'Untitled chat', ...current].slice(0, 6))
+    }
+    setGeneralAgentMessages([])
+    setGeneralAgentInput('')
+    setGeneralAgentView('current')
+  }
+
+  function submitCustomerAgent() {
+    const text = customerAgentInput.trim()
+    if (!text || !selected) return
+    askCustomerAgent(text)
+    setCustomerAgentInput('')
+  }
+
+  function askCustomerAgent(text: string) {
+    if (!selected) return
+    setCustomerAgentView('current')
+    setCustomerAgentMessages((current) => [
+      ...current,
+      { role: 'user', text },
+      {
+        role: 'agent',
+        text: `For ${selected.name}, I would use the latest ${selected.stage} context, the open concern around ${selected.objection}, and the strongest matching proof from the library before drafting anything customer-facing.`,
+      },
+    ])
+  }
+
+  function startNewCustomerAgentChat() {
+    if (customerAgentMessages.length > 0) {
+      const firstUserMessage = customerAgentMessages.find((message) => message.role === 'user')?.text
+      setCustomerAgentHistory((current) => [firstUserMessage || 'Untitled chat', ...current].slice(0, 6))
+    }
+    setCustomerAgentMessages([])
+    setCustomerAgentInput('')
+    setCustomerAgentView('current')
   }
 
   function closeProof() {
     setSelectedProof(null)
+    setSelectedCustomerProof(null)
+    setSelectedCustomerProofCustomer(null)
+    setSelectedCollateral(null)
+    setSelectedCollateralCustomer(null)
     setEditingProof(false)
     setProofDraft(null)
+  }
+
+  function closeDataPoint() {
+    setSelectedDataPoint(null)
+  }
+
+  function addCaptureSource() {
+    if (!selected) return
+    const source = buildConfiguredCaptureSource(selected, captureSourceType, captureSetupDraft)
+    setConfiguredSourceAdds((current) => ({
+      ...current,
+      [selected.id]: [...(current[selected.id] ?? []).filter((item) => item.name !== source.name), source],
+    }))
+    setHiddenConfiguredSources((current) => ({
+      ...current,
+      [selected.id]: (current[selected.id] ?? []).filter((name) => name !== source.name),
+    }))
+    setCaptureSetupDraft(defaultCaptureSetup)
+    setShowSourceSetup(false)
+  }
+
+  function removeCaptureSource(name: string) {
+    if (!selected) return
+    setConfiguredSourceAdds((current) => ({
+      ...current,
+      [selected.id]: (current[selected.id] ?? []).filter((source) => source.name !== name),
+    }))
+    setHiddenConfiguredSources((current) => ({
+      ...current,
+      [selected.id]: [...new Set([...(current[selected.id] ?? []), name])],
+    }))
+  }
+
+  function uploadCustomerData(event: React.FormEvent) {
+    event.preventDefault()
+    if (!selected) return
+    const title = uploadDraft.title.trim() || `${selected.name} uploaded source pack`
+    const note = uploadDraft.note.trim() || 'Uploaded source material for AI parsing and customer-profile enrichment.'
+    setUploadParsing(true)
+    window.setTimeout(() => {
+      const uploadedPoint: CustomerDataPoint = {
+        type: uploadDraft.type,
+        title,
+        date: 'Just now',
+        source: 'Manual upload',
+        status: 'Proof detected',
+        signal: `AI parsed this upload and routed it into ${selected.name}'s customer profile, timeline, and proof extraction workflow.`,
+        detail: note,
+        rawSections: [
+          {
+            title: 'Uploaded context',
+            lines: [
+              `Source: ${title}`,
+              `Format/type: ${uploadDraft.type}`,
+              `User note: ${note}`,
+            ],
+          },
+          {
+            title: 'AI parsing result',
+            lines: [
+              'Detected customer context, possible proof language, and relationship history.',
+              'Added a timeline event so the upload is visible in the customer journey.',
+              'Flagged the item for proof extraction and later collateral generation.',
+            ],
+          },
+        ],
+      }
+      setUploadedDataPoints((current) => ({
+        ...current,
+        [selected.id]: [uploadedPoint, ...(current[selected.id] ?? [])],
+      }))
+      setCustomers((current) =>
+        current.map((customer) =>
+          customer.id === selected.id
+            ? {
+                ...customer,
+                lastActivity: 'Upload parsed just now',
+                interactions: [
+                  {
+                    type: 'Upload',
+                    title,
+                    date: 'Just now',
+                    summary: `AI parsed uploaded material and added it to ${customer.name}'s data profile.`,
+                    proofDetected: true,
+                  },
+                  ...customer.interactions,
+                ],
+              }
+            : customer,
+        ),
+      )
+      setDataTab(uploadDraft.type)
+      setUploadParsing(false)
+      setShowCustomerUpload(false)
+      setUploadDraft(defaultUploadDraft)
+    }, 900)
   }
 
   function startEditProof() {
@@ -778,12 +1280,25 @@ function App() {
           <div className="brand-mark">د</div>
           <div className="brand-text">
             <strong>Dalil</strong>
-            <span>Proof memory for B2B startups</span>
           </div>
         </div>
         <nav>
           <NavButton active={view === 'dashboard'} icon={<Building2 size={18} />} label="Dashboard" onClick={() => setView('dashboard')} />
-          <NavButton active={view === 'customer'} icon={<Layers3 size={18} />} label="Customer Page" onClick={() => { setSelectedId(null); setView('customer') }} />
+          <NavButton active={view === 'customerInsights'} icon={<Layers3 size={18} />} label="Customer Insights" onClick={() => { setSelectedId(null); setView('customerInsights') }} />
+          <button className="sidebar-collapse" onClick={() => setCustomerListOpen((open) => !open)}>
+            <ChevronDown className={customerListOpen ? 'open' : ''} size={14} />
+            Customers
+            <span>{customers.length}</span>
+          </button>
+          {customerListOpen && (
+            <div className="sidebar-subnav">
+              {customers.map((customer) => (
+                <button className={view === 'customerDetail' && selectedId === customer.id ? 'active' : ''} key={customer.id} onClick={() => openCustomer(customer.id)}>
+                  {customer.name}
+                </button>
+              ))}
+            </div>
+          )}
           <NavButton active={view === 'library'} icon={<ShieldCheck size={18} />} label="Proof Library" onClick={() => setView('library')} />
         </nav>
       </aside>
@@ -791,7 +1306,7 @@ function App() {
       <section className="workspace">
         <header className="topbar">
           <div>
-            <h1>{view === 'dashboard' ? 'Customer Portfolio' : view === 'customer' ? (selectedId ? selected.name : 'All customers') : 'Company Proof Memory'}</h1>
+            <h1>{view === 'dashboard' ? 'Customer Portfolio' : view === 'customerInsights' ? 'Customer Insights' : view === 'customerDetail' ? selected?.name ?? 'Customer' : 'Company Proof Memory'}</h1>
           </div>
           <div className="topbar-actions">
             {view !== 'dashboard' && <button className="search-button"><Search size={17} /> Search proof</button>}
@@ -799,122 +1314,162 @@ function App() {
           </div>
         </header>
 
-        <section className="page">
+        <section className={`page ${view === 'dashboard' ? 'dashboard-page' : ''}`}>
           {view === 'dashboard' && (
-            <>
-              <section className="dashboard-hero">
-                <div>
-                  <span className="eyebrow">Capture → Structure → Activate</span>
-                  <h2>Every customer gets a proof profile and an agent with full relationship context.</h2>
-                  <p>Use the dashboard to see closed customers, ongoing relationships, and active prospects that need the right proof to move forward.</p>
+            <div className="dashboard-content">
+              <section className="dashboard-main">
+                <div className="summary-strip">
+                  <Stat label="Total customers" value={stats.customers} icon={<Building2 size={18} />} />
+                  <Stat label="Proof points" value={stats.proof} icon={<Sparkles size={18} />} />
+                  <Stat label="Sales collateral" value={stats.assets} icon={<FileText size={18} />} />
                 </div>
 
-                <div className="source-pills">
-                  <span><Upload size={15} /> Uploads</span>
-                  <span><Mail size={15} /> Email</span>
-                  <span><Mic2 size={15} /> Transcripts</span>
-                  <span><CalendarClock size={15} /> Calendar</span>
-                </div>
+                  <div className="section-head">
+                    <h2>All customers</h2>
+                  </div>
+                  <div className="status-filters" aria-label="Filter customers by status">
+                    <button className={dashboardStatus === 'All' ? 'active' : ''} onClick={() => setDashboardStatus('All')}>
+                      All <span>{customers.length}</span>
+                    </button>
+                    {statusCounts.map(({ status, count }) => (
+                      <button key={status} className={dashboardStatus === status ? 'active' : ''} onClick={() => setDashboardStatus(status)}>
+                        {status} <span>{count}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="customer-grid">
+                    {dashboardCustomers.map((customer) => (
+                      <button className="customer-card" key={customer.id} onClick={() => openCustomer(customer.id)}>
+                        <div className="card-top">
+                          <div className="logo">{customer.logo}</div>
+                          <span className={`badge ${statusClass(customer.status)}`}>{customer.status}</span>
+                        </div>
+                        <div>
+                          <h3>{customer.name}</h3>
+                          <p>{customer.industry}</p>
+                        </div>
+                        <div className="card-meta">
+                          <span>{['Active Deal', 'At Risk'].includes(customer.status) ? customer.stage : `${customer.health} health`}</span>
+                          <div className="card-stats">
+                            <span>{buildInteractionHistory(customer).length} interactions</span>
+                            <span>{customer.proofCount} proof</span>
+                          </div>
+                        </div>
+                        <div className="last-activity"><Clock3 size={15} /> {customer.lastActivity}</div>
+                      </button>
+                    ))}
+                  </div>
               </section>
 
-              <div className="summary-strip">
-                <Stat label="Customers tracked" value={stats.customers} icon={<Building2 size={18} />} />
-                <Stat label="Interactions logged" value={stats.interactions} icon={<Activity size={18} />} />
-                <Stat label="Proof points" value={stats.proof} icon={<Sparkles size={18} />} />
-                <Stat label="Collateral assets" value={stats.assets} icon={<FileText size={18} />} />
-              </div>
+              <aside className="dashboard-agent">
+                  <div className="agent-topbar">
+                    <button type="button" className={generalAgentView === 'current' ? 'active' : ''} onClick={() => setGeneralAgentView('current')}>
+                      <strong>Current</strong>
+                      <span>{generalAgentMessages.length ? `${generalAgentMessages.length} messages` : 'No active chat'}</span>
+                    </button>
+                    <button type="button" className={generalAgentView === 'history' ? 'active' : ''} onClick={() => setGeneralAgentView('history')}>
+                      History
+                    </button>
+                    <button type="button" className="secondary" onClick={startNewGeneralChat}>
+                      <Plus size={15} /> New chat
+                    </button>
+                  </div>
 
-              <div className="section-head">
-                <h2>Customer Cards</h2>
-                <button className="secondary"><Filter size={16} /> Filter</button>
-              </div>
-              <div className="customer-grid">
-                {customers.map((customer) => (
-                  <button className="customer-card" key={customer.id} onClick={() => openCustomer(customer.id)}>
-                    <div className="card-top">
-                      <div className="logo">{customer.logo}</div>
-                      <span className={`badge ${customer.status.toLowerCase()}`}>{customer.status}</span>
-                    </div>
-                    <div>
-                      <h3>{customer.name}</h3>
-                      <p>{customer.industry} · {customer.size}</p>
-                    </div>
-                    <div className="card-meta">
-                      <span>{customer.status === 'Prospect' ? customer.stage : `${customer.health} health`}</span>
-                      <span>{customer.interactions.length} interactions</span>
-                      <span>{customer.proof.length} proof points</span>
-                    </div>
-                    <div className="last-activity"><Clock3 size={15} /> {customer.lastActivity}</div>
-                  </button>
-                ))}
-              </div>
-            </>
+                  <div className="dashboard-agent-chat">
+                    {generalAgentView === 'history' ? (
+                      generalAgentHistory.length === 0 ? (
+                        <p className="empty-chat">No saved chats yet.</p>
+                      ) : (
+                        <div className="agent-history-list">
+                          {generalAgentHistory.map((item, index) => (
+                            <button type="button" key={`${item}-${index}`}>{item}</button>
+                          ))}
+                        </div>
+                      )
+                    ) : generalAgentMessages.length === 0 ? (
+                      <p className="empty-chat">Ask Dalil about proof gaps, active deals, or what customer story to use next.</p>
+                    ) : (
+                      generalAgentMessages.map((message, index) => (
+                        <div className={`dashboard-agent-msg ${message.role}`} key={index}>
+                          <p>{message.text}</p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  <form className="dashboard-agent-input" onSubmit={(event) => { event.preventDefault(); submitGeneralAgent() }}>
+                    <input value={generalAgentInput} onChange={(event) => setGeneralAgentInput(event.target.value)} placeholder="Ask Dalil..." />
+                    <button type="submit" aria-label="Send message"><Send size={15} /></button>
+                  </form>
+              </aside>
+            </div>
           )}
 
-          {view === 'customer' && !selectedId && (
+          {view === 'customerInsights' && (
             <>
-              <section className="dashboard-hero">
-                <div>
-                  <span className="eyebrow">Customer pulse</span>
-                  <h2>Where your portfolio stands today.</h2>
-                  <p>Aggregate signals across every customer relationship — pipeline, momentum, gaps, and objections in one place. Click any row to drill into a customer.</p>
-                </div>
-                <div className="overview-kpis">
-                  <article className="kpi">
-                    <span>Active pipeline</span>
-                    <strong>${overview.activePipeline}K</strong>
-                    <em>across {activeCount} {activeCount === 1 ? 'account' : 'accounts'}</em>
-                  </article>
-                  <article className="kpi">
-                    <span>Closed ARR</span>
-                    <strong>${overview.closedArr}K</strong>
-                    <em>{closedCount} {closedCount === 1 ? 'win' : 'wins'}</em>
-                  </article>
-                  <article className="kpi">
-                    <span>Avg deal cycle</span>
-                    <strong>{overview.avgCycle} days</strong>
-                    <em>start → close</em>
-                  </article>
-                </div>
-              </section>
+              <div className="insights-main">
+                <section className="dashboard-hero">
+                  <div>
+                    <span className="eyebrow">Customer pulse</span>
+                    <h2>Where your portfolio stands today.</h2>
+                    <p>Aggregate signals across every customer relationship — pipeline, momentum, gaps, and objections in one place. Click any row to drill into a customer.</p>
+                  </div>
+                  <div className="overview-kpis">
+                    <article className="kpi">
+                      <span>Active pipeline</span>
+                      <strong>${overview.activePipeline}K</strong>
+                      <em>across {activeCount} {activeCount === 1 ? 'account' : 'accounts'}</em>
+                    </article>
+                    <article className="kpi">
+                      <span>Closed ARR</span>
+                      <strong>${overview.closedArr}K</strong>
+                      <em>{closedCount} {closedCount === 1 ? 'win' : 'wins'}</em>
+                    </article>
+                    <article className="kpi">
+                      <span>Avg deal cycle</span>
+                      <strong>{overview.avgCycle} days</strong>
+                      <em>start → close</em>
+                    </article>
+                  </div>
+                </section>
 
-              <Section title="Pipeline by stage">
-                <div className="funnel">
-                  {overview.byStage.map(({ stage, count }) => (
-                    <div className="funnel-row" key={stage}>
-                      <span>{stage}</span>
-                      <div className="funnel-bar"><span style={{ width: `${(count / overview.maxStage) * 100}%` }} /></div>
-                      <strong>{count}</strong>
+                <Section title="Pipeline by stage">
+                  <div className="funnel">
+                    {overview.byStage.map(({ stage, count }) => (
+                      <div className="funnel-row" key={stage}>
+                        <span>{stage}</span>
+                        <div className="funnel-bar"><span style={{ width: `${(count / overview.maxStage) * 100}%` }} /></div>
+                        <strong>{count}</strong>
+                      </div>
+                    ))}
+                  </div>
+                </Section>
+
+                <div className="overview-row">
+                  <Section title="Industry mix">
+                    <div className="breakdown">
+                      {overview.byIndustry.map(([industry, count]) => (
+                        <div className="breakdown-row" key={industry}>
+                          <span>{industry}</span>
+                          <div className="breakdown-bar"><span style={{ width: `${(count / customers.length) * 100}%` }} /></div>
+                          <strong>{count}</strong>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  </Section>
+
+                  <Section title="Status mix">
+                    <div className="breakdown">
+                      {overview.byStatus.map(({ status, count }) => (
+                        <div className={`breakdown-row status-${statusClass(status)}`} key={status}>
+                          <span>{status}</span>
+                          <div className="breakdown-bar"><span style={{ width: `${(count / Math.max(1, customers.length)) * 100}%` }} /></div>
+                          <strong>{count}</strong>
+                        </div>
+                      ))}
+                    </div>
+                  </Section>
                 </div>
-              </Section>
-
-              <div className="overview-row">
-                <Section title="Industry mix">
-                  <div className="breakdown">
-                    {overview.byIndustry.map(([industry, count]) => (
-                      <div className="breakdown-row" key={industry}>
-                        <span>{industry}</span>
-                        <div className="breakdown-bar"><span style={{ width: `${(count / customers.length) * 100}%` }} /></div>
-                        <strong>{count}</strong>
-                      </div>
-                    ))}
-                  </div>
-                </Section>
-
-                <Section title="Status mix">
-                  <div className="breakdown">
-                    {overview.byStatus.map(({ status, count }) => (
-                      <div className={`breakdown-row status-${status.toLowerCase()}`} key={status}>
-                        <span>{status}</span>
-                        <div className="breakdown-bar"><span style={{ width: `${(count / Math.max(1, customers.length)) * 100}%` }} /></div>
-                        <strong>{count}</strong>
-                      </div>
-                    ))}
-                  </div>
-                </Section>
-              </div>
 
               <Section title="Recent customer signals" action={<Activity size={18} />}>
                 {overview.recentSignals.length === 0 ? (
@@ -967,48 +1522,110 @@ function App() {
                   </div>
                 </Section>
               </div>
+
+              <Section title="Portfolio intelligence" action={<Sparkles size={18} />}>
+                <div className="portfolio-intelligence-grid">
+                  <div className="insight-stack">
+                    <h3>Strongest segments</h3>
+                    {overview.segmentInsights.map((segment) => (
+                      <article className="portfolio-insight-card" key={segment.industry}>
+                        <strong>{segment.industry}</strong>
+                        <p>{segment.detail}</p>
+                        <em>{segment.count} accounts</em>
+                      </article>
+                    ))}
+                  </div>
+                  <div className="insight-stack">
+                    <h3>Proof packaging opportunities</h3>
+                    {overview.proofOpportunities.map((item) => (
+                      <button className="portfolio-insight-card clickable" key={item.id} onClick={() => openCustomer(item.id)}>
+                        <strong>{item.title}</strong>
+                        <p>{item.detail}</p>
+                        <em>Package into collateral</em>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="insight-stack">
+                    <h3>Activation plays</h3>
+                    {overview.activationPlays.map((item) => (
+                      <button className="portfolio-insight-card clickable" key={item.id} onClick={() => openCustomer(item.id)}>
+                        <strong>{item.title}</strong>
+                        <p>{item.detail}</p>
+                        <em>Prep proof for deal</em>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </Section>
+              </div>
             </>
           )}
 
-          {view === 'customer' && selectedId && (
+          {view === 'customerDetail' && selected && (
             <div className="customer-layout">
+              <button className="back-link customer-back-link" onClick={() => { setSelectedId(null); setView('customerInsights') }}>
+                <ChevronLeft size={16} /> Customer Insights
+              </button>
+              <div className="customer-tabs" aria-label="Customer sections">
+                <button className={customerSubView === 'insights' ? 'active' : ''} onClick={() => setCustomerSubView('insights')}>Customer Insights</button>
+                <button className={customerSubView === 'proofs' ? 'active' : ''} onClick={() => setCustomerSubView('proofs')}>Proofs & Collaterals</button>
+              </div>
               <div className="main-column">
-                <button className="back-link" onClick={() => setSelectedId(null)}>
-                  <ChevronLeft size={16} /> All customers
-                </button>
-                <Section title="Overview" action={<span className={`badge ${selected.status.toLowerCase()}`}>{selected.status}</span>}>
-                  <div className="overview-grid">
-                    <Info label="Industry" value={selected.industry} />
-                    <Info label="Size" value={selected.size} />
-                    <Info label="Website" value={selected.website} />
-                    <Info label="Main contacts" value={selected.contacts.join(' · ')} />
-                    <Info label="Stage" value={selected.stage} />
-                    <Info label="Value" value={selected.value} />
-                    <Info label="Start date" value={selected.startDate} />
-                    <Info label="Expected close" value={selected.closeDate} />
-                    <Info label="Competitor displaced" value={selected.competitor} wide />
-                  </div>
-                  <div className="persona-row">
-                    {selected.personas.map((persona) => <span key={persona}>{persona}</span>)}
-                  </div>
-                </Section>
+                {customerSubView === 'insights' ? (
+                  <>
+                    <Section title="Summary">
+                      <p className="journey-summary">{customerJourneySummary(selected)}</p>
+                    </Section>
 
-                <Section
-                  title="Data & Interactions"
-                  action={<div className="inline-actions"><button className="secondary" onClick={runUpload}><Upload size={16} /> Upload</button><button className="secondary" onClick={runAutoCapture}><Inbox size={16} /> Simulate email</button></div>}
-                >
-                  {uploadState !== 'idle' && <Process state={uploadState} />}
-                  {autoCapture && (
-                    <div className="notice">
-                      <Inbox size={18} />
-                      <div>
-                        <strong>Automatic data detected</strong>
-                        <p>Email from `sarah@acmehealth.com` was matched to Acme Health and flagged as relevant to the active deal.</p>
+                    <Section title="Overview" action={<span className={`badge ${statusClass(selected.status)}`}>{selected.status}</span>}>
+                      <div className="overview-grid">
+                        <Info label="Industry" value={selected.industry} />
+                        <Info label="Size" value={selected.size} />
+                        <Info label="Website" value={selected.website} />
+                        <Info label="Main contacts" value={selected.contacts.join(' · ')} />
+                        <Info label="Stage" value={selected.stage} />
+                        <Info label="Value" value={selected.value} />
+                        <Info label="Start date" value={selected.startDate} />
                       </div>
+                    </Section>
+
+                    <Section title="Data Sources" action={<button className="secondary" onClick={() => setShowSourceSetup(true)}><Plus size={16} /> Add source</button>}>
+                  <div className="capture-source-list">
+                    {selectedDataSources.map((source) => (
+                      <article className="capture-source-card" key={source.name}>
+                        <div className="capture-source-main">
+                          <span className={`source-dot source-${source.status.toLowerCase()}`} />
+                          <div>
+                            <strong>{source.name}</strong>
+                            <span>{source.source}</span>
+                          </div>
+                        </div>
+                        <p>{source.detail}</p>
+                        <footer>
+                          <em>{source.status}</em>
+                          <span>{source.cadence}</span>
+                          <button type="button" onClick={() => removeCaptureSource(source.name)}>Remove</button>
+                        </footer>
+                      </article>
+                    ))}
+                  </div>
+                  <div className="coming-soon-integrations">
+                    <strong>Coming soon</strong>
+                    <span>Integrations with Apollo and Dripify for outbound sequence context, prospect activity, and automated capture into the right customer profile.</span>
+                  </div>
+                    </Section>
+
+                    <Section
+                  title="Interactions Timeline"
+                  action={
+                    <div className="segmented-control" aria-label="Timeline view">
+                      <button className={timelineView === 'condensed' ? 'active' : ''} onClick={() => setTimelineView('condensed')}>Condensed</button>
+                      <button className={timelineView === 'comprehensive' ? 'active' : ''} onClick={() => setTimelineView('comprehensive')}>Comprehensive</button>
                     </div>
-                  )}
-                  <div className="timeline">
-                    {selected.interactions.map((item) => (
+                  }
+                    >
+                  <div className={`timeline timeline-${timelineView}`}>
+                    {selectedTimelineItems.map((item) => (
                       <article className="timeline-item" key={`${item.title}-${item.date}`}>
                         <div className="timeline-icon">{iconFor(item.type)}</div>
                         <div>
@@ -1020,77 +1637,207 @@ function App() {
                       </article>
                     ))}
                   </div>
-                </Section>
+                    </Section>
+
+                    <Section title="Data" action={<button className="secondary" onClick={() => setShowCustomerUpload(true)}><Upload size={16} /> Upload</button>}>
+                  <div className="data-tabs" aria-label="Customer data types">
+                    {dataTabs.map((tab) => (
+                      <button className={dataTab === tab ? 'active' : ''} key={tab} onClick={() => setDataTab(tab)}>
+                        {tab}
+                        <span>{selectedDataPoints.filter((item) => item.type === tab).length}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="data-list">
+                    {selectedDataRows.map((row, rowIndex) => (
+                      <div className="data-row" key={`${dataTab}-${rowIndex}`}>
+                        {row.map((item) => {
+                          const itemKey = `${selected.id}-${item.type}-${item.title}`
+                          return (
+                            <button className="data-point" key={itemKey} onClick={() => setSelectedDataPoint(item)}>
+                              <span className="data-point-head">
+                                <strong>{item.title}</strong>
+                                <em className={item.status === 'Proof detected' ? 'detected' : ''}>{item.status}</em>
+                              </span>
+                              <span className="data-point-meta">{item.date} · Source: {item.source}</span>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                    </Section>
+                  </>
+                ) : (
+                  <div className="customer-proof-page">
+                    <Section title="Proof Points">
+                      <div className="customer-proof-list">
+                        {selectedProofAssets.length === 0 ? (
+                          <div className="empty-state">
+                            <Sparkles size={22} />
+                            <p>No customer-specific proof points have been extracted yet.</p>
+                          </div>
+                        ) : selectedProofAssets.map((asset) => (
+                          <button className="proof-asset-row" key={asset.id} onClick={() => { setSelectedCustomerProof(asset); setSelectedCustomerProofCustomer(selected) }}>
+                            <span>{asset.type}</span>
+                            <strong>{asset.text}</strong>
+                            <p>{asset.source}</p>
+                          </button>
+                        ))}
+                      </div>
+                    </Section>
+
+                    <Section title="Collaterals">
+                      <div className="customer-proof-list">
+                        {selected.collateral.length === 0 ? (
+                          <div className="empty-state">
+                            <FileText size={22} />
+                            <p>No collateral has been generated for this customer yet.</p>
+                          </div>
+                        ) : selected.collateral.map((asset) => (
+                          <button className="collateral-card" key={asset.title} onClick={() => { setSelectedCollateral(asset); setSelectedCollateralCustomer(selected) }}>
+                            <div><strong>{asset.title}</strong><span>{asset.type} · {asset.status}</span></div>
+                            <p>{asset.summary}</p>
+                          </button>
+                        ))}
+                      </div>
+                    </Section>
+                  </div>
+                )}
               </div>
 
-              <aside className="right-column">
-                <Section title="Proof & Collateral" action={<button className="secondary" onClick={generateAsset}><Wand2 size={16} /> Generate</button>}>
-                  <div className="proof-collateral">
-                    {selected.proof.length === 0 ? (
-                      <div className="empty-state">
-                        <Sparkles size={22} />
-                        <p>No proof extracted from this prospect yet. Use the agent to retrieve relevant proof from closed customers.</p>
-                      </div>
-                    ) : selected.proof.map((proof) => <ProofCard proof={proof} key={proof.id} onClick={() => openProof(proof)} />)}
-                    {selected.collateral.map((asset) => <AssetCard asset={asset} key={asset.title} />)}
-                    {assetState === 'generating' && <div className="run-result">Generating case study, proof card, and sales snippet...</div>}
-                    {assetState === 'done' && <AssetCard asset={{ title: 'Implementation risk proof pack', type: 'Generated collateral', status: 'Internal Only', summary: 'Case study draft, quote card, and email-ready snippet created from selected proof.' }} />}
+              <aside className="right-column customer-right-column">
+                <Section title="Upcoming" action={<Clock3 size={18} />}>
+                  <div className="upcoming-list">
+                    {selectedUpcomingItems.map((item) => (
+                      <button className="upcoming-item" key={`${item.type}-${item.title}`} onClick={() => setSelectedUpcomingItem(item)}>
+                        <div className="upcoming-type">{iconForUpcoming(item.type)}</div>
+                        <div>
+                          <strong>{item.title}</strong>
+                          <span>{item.due} · Source: {item.source}</span>
+                          <p>{item.summary}</p>
+                        </div>
+                      </button>
+                    ))}
                   </div>
                 </Section>
 
-                <Section title="Agent" action={<Bot size={18} />}>
-                  <div className="agent-box">
-                    <p>This agent knows the customer profile, interactions, proof points, deal stage, personas, objection, and upcoming meetings.</p>
-                    <button onClick={() => openChat('What proof is relevant to their main objection?')}>What proof is relevant to their main objection?</button>
-                    <button onClick={() => openChat('Draft a follow-up email addressing implementation risk')}>Draft a follow-up email addressing implementation risk</button>
-                    <button onClick={() => openChat("Prepare tomorrow's meeting brief")}>Prepare tomorrow's meeting brief</button>
+                <section className="panel customer-agent-panel">
+                  <div className="agent-topbar">
+                    <button type="button" className={customerAgentView === 'current' ? 'active' : ''} onClick={() => setCustomerAgentView('current')}>
+                      Current
+                      <span>{customerAgentMessages.length ? `${customerAgentMessages.length} messages` : 'No active chat'}</span>
+                    </button>
+                    <button type="button" className={customerAgentView === 'history' ? 'active' : ''} onClick={() => setCustomerAgentView('history')}>
+                      History
+                    </button>
+                    <button type="button" className="secondary" onClick={startNewCustomerAgentChat}>New chat</button>
                   </div>
-                </Section>
+                  <div className="dashboard-agent-chat customer-agent-chat">
+                    <div className="customer-agent-context">
+                      <strong>Fine-tuned on {selected.name}</strong>
+                      <span>Uses this customer’s data sources, timeline, upcoming work, deal context, objections, and proof history.</span>
+                    </div>
+                    {customerAgentView === 'history' ? (
+                      customerAgentHistory.length === 0 ? (
+                        <p className="empty-chat">No archived customer chats yet.</p>
+                      ) : (
+                        <div className="agent-history-list">
+                          {customerAgentHistory.map((item, index) => (
+                            <button key={`${item}-${index}`} onClick={() => setCustomerAgentView('current')}>{item}</button>
+                          ))}
+                        </div>
+                      )
+                    ) : customerAgentMessages.length === 0 ? (
+                      <p className="empty-chat">Ask about this customer, upcoming work, source data, or proof to use next.</p>
+                    ) : (
+                      customerAgentMessages.map((message, index) => (
+                        <div className={`dashboard-agent-msg ${message.role}`} key={index}>
+                          <p>{message.text}</p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  <form className="dashboard-agent-input customer-agent-input" onSubmit={(event) => { event.preventDefault(); submitCustomerAgent() }}>
+                    <input value={customerAgentInput} onChange={(event) => setCustomerAgentInput(event.target.value)} placeholder={`Ask about ${selected.name}...`} />
+                    <button type="submit" aria-label="Send"><Send size={16} /></button>
+                  </form>
+                </section>
               </aside>
             </div>
           )}
 
           {view === 'library' && (
-            <div className="library-layout">
-              <main className="main-column">
-                <Section title="Proof Points" action={<button className="secondary"><Filter size={16} /> Filters</button>}>
-                  <div className="filter-bar">
-                    <span>Industry</span>
-                    <span>Company size</span>
-                    <span>Use case</span>
-                    <span>Outcome type</span>
-                    <span>Deal stage</span>
-                  </div>
-                  <div className="proof-list">
-                    {proofPoints.map((proof) => (
-                      <button className="proof-row" key={proof.id} onClick={() => openProof(proof)}>
-                        <div>
-                          <strong>{proof.claim}</strong>
-                          <p>{proof.sourceCustomer} · {proof.metric}</p>
-                        </div>
-                        <span>{proof.bestFor}</span>
-                        <ChevronRight size={18} />
-                      </button>
-                    ))}
-                  </div>
-                </Section>
-              </main>
+            <div className="library-memory">
+              <Section title="Proof Groups" action={<Sparkles size={18} />}>
+                <div className="library-group-grid">
+                  {libraryProofGroups.map((group) => (
+                    <article className="library-group-card" key={group.title}>
+                      <div>
+                        <strong>{group.title}</strong>
+                        <span>{group.count} items</span>
+                      </div>
+                      <p>{group.detail}</p>
+                    </article>
+                  ))}
+                </div>
+              </Section>
 
-              <aside className="right-column">
-                <Section title="Strengths & Insights" action={<Sparkles size={18} />}>
-                  <div className="insight-list">
-                    <Insight title="You consistently win on implementation speed" detail="BrightCart, MedPilot, and Greenline all mention fast rollout or reduced process drag." />
-                    <Insight title="Strongest segment: Series A-B operational SaaS" detail="The highest-confidence proof comes from teams with 80-220 employees and lean operations teams." />
-                    <Insight title="Common objection overcome: incumbent trust" detail="Greenline and BrightCart show how younger vendors win when proof is specific to the prospect's situation." />
-                  </div>
-                  <div className="general-assets">
-                    <button onClick={() => openChat('Generate website proof block')}>Generate website proof block</button>
-                    <button onClick={() => openChat('Generate LinkedIn post')}>Generate LinkedIn post</button>
-                    <button onClick={() => openChat('Generate investor snippet')}>Generate investor snippet</button>
-                    <button onClick={() => openChat('Generate one-pager')}>Generate one-pager</button>
-                  </div>
-                </Section>
-              </aside>
+              <div className="library-layout">
+                <main className="main-column">
+                  <Section title="All Proof Points">
+                    <div className="filter-bar">
+                      {(['All', 'Quote', 'Metric', 'Outcome', 'Objection', 'Sales snippet'] as const).map((filter) => (
+                        <button className={libraryProofFilter === filter ? 'active' : ''} key={filter} onClick={() => setLibraryProofFilter(filter)}>
+                          {filter === 'All' ? 'All' : filter === 'Quote' ? 'Quotes' : filter === 'Metric' ? 'Metrics' : filter === 'Outcome' ? 'Outcomes' : filter === 'Objection' ? 'Objections' : 'Sales snippets'}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="proof-list library-proof-list">
+                      {visibleLibraryProofAssets.map((asset) => (
+                        <button className="proof-asset-row" key={`${asset.parentProof.sourceCustomer}-${asset.id}`} onClick={() => { setSelectedCustomerProof(asset); setSelectedCustomerProofCustomer(customers.find((customer) => customer.name === asset.parentProof.sourceCustomer) ?? null) }}>
+                          <span>{asset.type}</span>
+                          <strong>{asset.text}</strong>
+                          <p>{asset.parentProof.sourceCustomer} · {asset.source}</p>
+                        </button>
+                      ))}
+                    </div>
+                  </Section>
+
+                  <Section title="Customer Collaterals">
+                    <div className="library-collateral-grid">
+                      {libraryCustomerCollaterals.map(({ customer, asset }) => (
+                        <button className="collateral-card" key={`${customer.id}-${asset.title}`} onClick={() => { setSelectedCollateral(asset); setSelectedCollateralCustomer(customer) }}>
+                          <div><strong>{asset.title}</strong><span>{customer.name} · {asset.type} · {asset.status}</span></div>
+                          <p>{asset.summary}</p>
+                        </button>
+                      ))}
+                    </div>
+                  </Section>
+                </main>
+
+                <aside className="right-column">
+                  <Section title="General Collaterals" action={<FileText size={18} />}>
+                    <div className="library-general-grid">
+                      {libraryGeneralCollaterals.map((asset) => (
+                        <button className="general-collateral-card" key={asset.title} onClick={() => openChat(`Generate ${asset.title}`)}>
+                          <strong>{asset.title}</strong>
+                          <span>{asset.type} · {asset.status}</span>
+                          <p>{asset.summary}</p>
+                        </button>
+                      ))}
+                    </div>
+                  </Section>
+
+                  <Section title="What Dalil is seeing" action={<Sparkles size={18} />}>
+                    <div className="insight-list">
+                      <Insight title="What you are good at" detail="Implementation speed, lean-team rollout, and turning founder-led proof into repeatable sales assets." />
+                      <Insight title="What prospects ask often" detail="Implementation bandwidth, trust against incumbents, security review, and proof from similar teams." />
+                      <Insight title="Strongest proof formats" detail="Quotes and metrics are strongest today; customer-approved case studies are still limited." />
+                    </div>
+                  </Section>
+                </aside>
+              </div>
             </div>
           )}
         </section>
@@ -1127,9 +1874,13 @@ function App() {
                 </Field>
                 <Field label="Status">
                   <select value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value as CustomerStatus })}>
-                    <option value="Prospect">Prospect</option>
-                    <option value="Ongoing">Ongoing</option>
+                    <option value="Active Deal">Active Deal</option>
+                    <option value="Onboarding">Onboarding</option>
+                    <option value="Live">Live</option>
+                    <option value="Expanding">Expanding</option>
+                    <option value="At Risk">At Risk</option>
                     <option value="Closed">Closed</option>
+                    <option value="Closed Lost">Closed Lost</option>
                   </select>
                 </Field>
                 <Field label="Stage">
@@ -1169,6 +1920,9 @@ function App() {
                 </Field>
                 <Field label="Main objection" wide>
                   <input value={draft.objection} onChange={(event) => setDraft({ ...draft, objection: event.target.value })} placeholder="Implementation bandwidth" />
+                </Field>
+                <Field label="Journey summary" wide>
+                  <textarea rows={3} value={draft.journeySummary} onChange={(event) => setDraft({ ...draft, journeySummary: event.target.value })} placeholder="What they do, what they need, what they like, and what has been achieved so far." />
                 </Field>
               </div>
               <footer className="modal-foot">
@@ -1231,6 +1985,301 @@ function App() {
             <footer className="modal-foot">
               <button type="button" className="secondary" onClick={() => viewProofCustomer(selectedProof)}>View customer</button>
               <button type="button" className="primary" onClick={startEditProof}>Edit</button>
+            </footer>
+          </div>
+        </div>
+      )}
+
+      {selectedCustomerProof && selectedCustomerProofCustomer && (
+        <div className="modal-backdrop" onClick={closeProof}>
+          <div className="modal proof-modal customer-proof-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+            <header className="modal-head">
+              <div>
+                <span className="eyebrow">{selectedCustomerProof.type} · {selectedCustomerProofCustomer.name}</span>
+                <h2>{selectedCustomerProof.text}</h2>
+              </div>
+              <button type="button" className="modal-close" onClick={closeProof} aria-label="Close">
+                <X size={18} />
+              </button>
+            </header>
+            <div className="proof-body">
+              <div className="proof-badges">
+                <span className={`badge ${selectedCustomerProof.approval === 'Internal Only' ? 'prospect' : 'closed'}`}>{selectedCustomerProof.approval}</span>
+                <span className="badge ongoing">{selectedCustomerProof.type}</span>
+              </div>
+              <section className="proof-section customer-proof-summary">
+                <h3>Reusable proof asset</h3>
+                <p className="data-modal-copy">{selectedCustomerProof.text}</p>
+              </section>
+              <div className="proof-stats data-stats">
+                <div className="proof-stat"><span>Type</span><strong>{selectedCustomerProof.type}</strong></div>
+                <div className="proof-stat"><span>Source</span><strong>{selectedCustomerProof.source}</strong></div>
+                <div className="proof-stat"><span>Captured</span><strong>{selectedCustomerProof.parentProof.dateCaptured}</strong></div>
+              </div>
+              <section className="proof-section">
+                <h3>Parent proof</h3>
+                <p className="data-modal-copy">{selectedCustomerProof.parentProof.claim}</p>
+              </section>
+              <section className="proof-section">
+                <h3>Why Dalil extracted it</h3>
+                <p className="data-modal-copy">This was pulled from {selectedCustomerProof.source} because it is a small reusable asset sales or marketing can use when the account context involves {selectedCustomerProofCustomer.objection.toLowerCase()}.</p>
+              </section>
+            </div>
+            <footer className="modal-foot">
+              <button type="button" className="secondary" onClick={closeProof}>Close</button>
+              <button type="button" className="primary" onClick={() => { view === 'customerDetail' ? askCustomerAgent(`Help me use this proof asset: ${selectedCustomerProof.text}`) : openChat(`Help me use this proof asset: ${selectedCustomerProof.text}`); closeProof() }}>Use in agent</button>
+            </footer>
+          </div>
+        </div>
+      )}
+
+      {selectedCollateral && selectedCollateralCustomer && (
+        <div className="modal-backdrop" onClick={closeProof}>
+          <div className="modal proof-modal collateral-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+            <header className="modal-head">
+              <div>
+                <span className="eyebrow">{selectedCollateral.type} · {selectedCollateralCustomer.name}</span>
+                <h2>{selectedCollateral.title}</h2>
+              </div>
+              <button type="button" className="modal-close" onClick={closeProof} aria-label="Close">
+                <X size={18} />
+              </button>
+            </header>
+            <div className="proof-body">
+              <div className="proof-badges">
+                <span className={`badge ${selectedCollateral.status === 'Internal Only' ? 'prospect' : 'closed'}`}>{selectedCollateral.status}</span>
+                <span className="badge ongoing">{selectedCollateral.type}</span>
+              </div>
+              <section className="proof-section">
+                <h3>Collateral</h3>
+                <div className="collateral-document">
+                  {buildCollateralDocument(selectedCollateralCustomer, selectedCollateral).map((section) => (
+                    <article key={section.title}>
+                      <h4>{section.title}</h4>
+                      {section.lines.map((line) => <p key={line}>{line}</p>)}
+                    </article>
+                  ))}
+                </div>
+              </section>
+              <section className="proof-section">
+                <h3>Context</h3>
+                <div className="raw-data-preview">
+                  <article className="raw-data-section">
+                    <ul>
+                      {buildCollateralContext(selectedCollateralCustomer, selectedCollateral).map((line) => <li key={line}>{line}</li>)}
+                    </ul>
+                  </article>
+                </div>
+              </section>
+            </div>
+            <footer className="modal-foot">
+              <button type="button" className="secondary" onClick={closeProof}>Close</button>
+              <button type="button" className="primary" onClick={() => { openChat(`Help me refine this collateral: ${selectedCollateral.title}`); closeProof() }}>Use in agent</button>
+            </footer>
+          </div>
+        </div>
+      )}
+
+      {selectedDataPoint && selected && (
+        <div className="modal-backdrop" onClick={closeDataPoint}>
+          <div className="modal proof-modal data-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+            <header className="modal-head">
+              <div>
+                <span className="eyebrow">Customer data · {selected.name}</span>
+                <h2>{selectedDataPoint.title}</h2>
+              </div>
+              <button type="button" className="modal-close" onClick={closeDataPoint} aria-label="Close">
+                <X size={18} />
+              </button>
+            </header>
+            <div className="proof-body">
+              <div className="proof-badges">
+                <span className="badge prospect">{selectedDataPoint.type}</span>
+                <span className={`badge ${selectedDataPoint.status === 'Proof detected' ? 'closed' : 'ongoing'}`}>{selectedDataPoint.status}</span>
+              </div>
+              <div className="proof-stats data-stats">
+                <div className="proof-stat"><span>Source</span><strong>{selectedDataPoint.source}</strong></div>
+                <div className="proof-stat"><span>Date</span><strong>{selectedDataPoint.date}</strong></div>
+                <div className="proof-stat"><span>Customer</span><strong>{selected.name}</strong></div>
+              </div>
+              <section className="proof-section">
+                <h3>{selectedDataPoint.emailThread ? 'Email thread' : 'Source content'}</h3>
+                {selectedDataPoint.emailThread ? (
+                  <div className="email-thread">
+                    {selectedDataPoint.emailThread.map((email) => (
+                      <article className="email-message" key={`${email.from}-${email.time}`}>
+                        <header>
+                          <div>
+                            <strong>{email.from}</strong>
+                            <span>To: {email.to}</span>
+                          </div>
+                          <time>{email.time}</time>
+                        </header>
+                        <p>{email.body}</p>
+                      </article>
+                    ))}
+                  </div>
+                ) : selectedDataPoint.rawSections ? (
+                  <div className="raw-data-preview">
+                    {selectedDataPoint.rawSections.map((section) => (
+                      <article className="raw-data-section" key={section.title}>
+                        <h4>{section.title}</h4>
+                        <ul>
+                          {section.lines.map((line) => <li key={line}>{line}</li>)}
+                        </ul>
+                      </article>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="data-modal-copy">{selectedDataPoint.detail}</p>
+                )}
+              </section>
+              <section className="proof-section">
+                <h3>Dalil signal</h3>
+                <p className="data-modal-copy">{selectedDataPoint.signal}</p>
+              </section>
+            </div>
+            <footer className="modal-foot">
+              <button type="button" className="secondary" onClick={closeDataPoint}>Close</button>
+            </footer>
+          </div>
+        </div>
+      )}
+
+      {showSourceSetup && selected && (
+        <div className="modal-backdrop" onClick={() => setShowSourceSetup(false)}>
+          <div className="modal proof-modal capture-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+            <header className="modal-head">
+              <div>
+                <span className="eyebrow">Data source · {selected.name}</span>
+                <h2>Configure a new capture method</h2>
+              </div>
+              <button type="button" className="modal-close" onClick={() => setShowSourceSetup(false)} aria-label="Close">
+                <X size={18} />
+              </button>
+            </header>
+            <div className="proof-body">
+              <section className="proof-section capture-modal-section">
+                <h3>Capture type</h3>
+                <div className="capture-options">
+                  {captureSourceOptions.map((option) => (
+                    <button className={captureSourceType === option ? 'active' : ''} key={option} onClick={() => { setCaptureSourceType(option); setCaptureSetupDraft(defaultCaptureSetup) }}>
+                      {option}
+                    </button>
+                  ))}
+                </div>
+              </section>
+              <section className="proof-section capture-modal-section">
+                <h3>Setup details</h3>
+                <CaptureSetupFields
+                  customer={selected}
+                  draft={captureSetupDraft}
+                  setDraft={setCaptureSetupDraft}
+                  type={captureSourceType}
+                />
+              </section>
+              <section className="proof-section capture-modal-section">
+                <h3>Preview</h3>
+                <p className="data-modal-copy">{captureSourcePreview(selected, captureSourceType, captureSetupDraft)}</p>
+              </section>
+            </div>
+            <footer className="modal-foot">
+              <button type="button" className="secondary" onClick={() => setShowSourceSetup(false)}>Cancel</button>
+              <button type="button" className="primary" onClick={addCaptureSource}>Configure</button>
+            </footer>
+          </div>
+        </div>
+      )}
+
+      {showCustomerUpload && selected && (
+        <div className="modal-backdrop" onClick={() => !uploadParsing && setShowCustomerUpload(false)}>
+          <div className="modal proof-modal upload-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+            <header className="modal-head">
+              <div>
+                <span className="eyebrow">Upload · {selected.name}</span>
+                <h2>Add customer data</h2>
+              </div>
+              <button type="button" className="modal-close" disabled={uploadParsing} onClick={() => setShowCustomerUpload(false)} aria-label="Close">
+                <X size={18} />
+              </button>
+            </header>
+            <form className="modal-form" onSubmit={uploadCustomerData}>
+              <div className="form-grid">
+                <Field label="Source name" wide>
+                  <input value={uploadDraft.title} onChange={(event) => setUploadDraft({ ...uploadDraft, title: event.target.value })} placeholder="QBR transcript, renewal email export, founder notes, usage metrics.csv" />
+                </Field>
+                <Field label="Data type">
+                  <select value={uploadDraft.type} onChange={(event) => setUploadDraft({ ...uploadDraft, type: event.target.value as DataTab })}>
+                    {dataTabs.map((tab) => <option key={tab} value={tab}>{tab}</option>)}
+                  </select>
+                </Field>
+                <Field label="Accepted formats">
+                  <input value="PDF, DOCX, TXT, CSV, email export, transcript, screenshot" readOnly />
+                </Field>
+                <Field label="What is being uploaded?" wide hint="Optional context helps the AI route and summarize the source correctly.">
+                  <textarea rows={4} value={uploadDraft.note} onChange={(event) => setUploadDraft({ ...uploadDraft, note: event.target.value })} placeholder="This is a QBR transcript where the customer discusses onboarding speed, engineering escalations, and a quote we may want to reuse." />
+                </Field>
+                <div className="upload-parser-note wide-field">
+                  <Sparkles size={18} />
+                  <div>
+                    <strong>AI parsing</strong>
+                    <p>Dalil will classify the upload, add it to Data, create a Timeline event, and flag potential proof for review.</p>
+                  </div>
+                </div>
+              </div>
+              <footer className="modal-foot">
+                <button type="button" className="secondary" disabled={uploadParsing} onClick={() => setShowCustomerUpload(false)}>Cancel</button>
+                <button type="submit" className="primary" disabled={uploadParsing}>{uploadParsing ? 'Parsing...' : 'Upload & parse'}</button>
+              </footer>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {selectedUpcomingItem && selected && (
+        <div className="modal-backdrop" onClick={() => setSelectedUpcomingItem(null)}>
+          <div className="modal proof-modal upcoming-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+            <header className="modal-head">
+              <div>
+                <span className="eyebrow">Upcoming · {selected.name}</span>
+                <h2>{selectedUpcomingItem.title}</h2>
+              </div>
+              <button type="button" className="modal-close" onClick={() => setSelectedUpcomingItem(null)} aria-label="Close">
+                <X size={18} />
+              </button>
+            </header>
+            <div className="proof-body">
+              <div className="proof-badges">
+                <span className="badge prospect">{selectedUpcomingItem.type}</span>
+                <span className="badge ongoing">{selectedUpcomingItem.due}</span>
+              </div>
+              <div className="proof-stats data-stats">
+                <div className="proof-stat"><span>Source</span><strong>{selectedUpcomingItem.source}</strong></div>
+                <div className="proof-stat"><span>Customer</span><strong>{selected.name}</strong></div>
+                <div className="proof-stat"><span>Stage</span><strong>{selected.stage}</strong></div>
+              </div>
+              <section className="proof-section">
+                <h3>Why this is upcoming</h3>
+                <p className="data-modal-copy">{selectedUpcomingItem.summary}</p>
+              </section>
+              <section className="proof-section">
+                <h3>Context</h3>
+                <div className="raw-data-preview">
+                  <article className="raw-data-section">
+                    <ul>
+                      {selectedUpcomingItem.context.map((line) => <li key={line}>{line}</li>)}
+                    </ul>
+                  </article>
+                </div>
+              </section>
+              <section className="proof-section">
+                <h3>Recommended action</h3>
+                <p className="data-modal-copy">{selectedUpcomingItem.recommendedAction}</p>
+              </section>
+            </div>
+            <footer className="modal-foot">
+              <button type="button" className="secondary" onClick={() => setSelectedUpcomingItem(null)}>Close</button>
+              <button type="button" className="primary" onClick={() => { askCustomerAgent(selectedUpcomingItem.recommendedAction); setSelectedUpcomingItem(null) }}>Open in agent</button>
             </footer>
           </div>
         </div>
@@ -1378,12 +2427,1090 @@ function App() {
           </div>
         </div>
       )}
+
     </main>
   )
 }
 
 function NavButton({ active, icon, label, onClick }: { active: boolean; icon: ReactNode; label: string; onClick: () => void }) {
   return <button className={active ? 'active' : ''} onClick={onClick}>{icon}<span className="nav-label">{label}</span></button>
+}
+
+function statusClass(status: CustomerStatus) {
+  return status.toLowerCase().replace(/\s+/g, '-')
+}
+
+function customerJourneySummary(customer: Customer) {
+  return customer.journeySummary || `${customer.name} is a ${customer.industry} account currently at ${customer.stage}. They need help turning scattered relationship context into proof they can use in sales conversations, with the main concern centered on ${customer.objection || 'credibility and implementation confidence'}. So far Dalil has captured ${customer.interactionCount} interactions and surfaced ${customer.proofCount} proof points, giving the team a clearer view of what this customer cares about, what has been discussed, and which evidence can be reused in future deals.`
+}
+
+function buildInteractionHistory(customer: Customer): Interaction[] {
+  const templates: Interaction[] = [
+    {
+      type: 'Email',
+      title: 'Initial outreach',
+      date: 'Week 1',
+      summary: `${customer.contacts[0] ?? 'Main contact'} engaged after outreach and shared the first version of the problem: ${customer.objection}.`,
+    },
+    {
+      type: 'Meeting',
+      title: 'Discovery call',
+      date: 'Week 1',
+      summary: `Discovery focused on ${customer.industry}, current process gaps, buying priorities, and what proof would make the team confident moving forward.`,
+    },
+    {
+      type: 'Note',
+      title: 'Founder context added',
+      date: 'Week 2',
+      summary: `Internal notes captured how this account fits the target segment, why the deal matters, and what success should look like.`,
+    },
+    {
+      type: 'Transcript',
+      title: 'Product demo transcript',
+      date: 'Week 2',
+      summary: `Demo conversation captured buyer reactions, requested proof, and the features most relevant to ${customer.name}.`,
+      proofDetected: customer.proofCount > 0,
+    },
+    {
+      type: 'Email',
+      title: 'Follow-up with proof request',
+      date: 'Week 3',
+      summary: `Buyer asked for examples from similar companies and evidence related to ${customer.objection}.`,
+      proofDetected: ['Active Deal', 'At Risk'].includes(customer.status),
+    },
+    {
+      type: 'Meeting',
+      title: 'Stakeholder review',
+      date: 'Week 4',
+      summary: `Additional stakeholders reviewed goals, rollout concerns, and the business case for moving forward.`,
+    },
+    {
+      type: 'Upload',
+      title: 'Source documents added',
+      date: 'Week 4',
+      summary: `Notes, emails, and supporting materials were added to the customer profile for extraction and future retrieval.`,
+    },
+    {
+      type: 'Meeting',
+      title: 'Decision call',
+      date: 'Week 5',
+      summary: `The team reviewed fit, risks, and next steps. The most important objection remained ${customer.objection}.`,
+    },
+    {
+      type: 'Transcript',
+      title: 'Outcome review',
+      date: 'Post-sale',
+      summary: `Customer discussed early outcomes, what improved, and which story could become reusable proof.`,
+      proofDetected: customer.proofCount > 2,
+    },
+    {
+      type: 'Email',
+      title: 'Customer quote captured',
+      date: 'Post-sale',
+      summary: `A usable quote was captured and routed into the proof review workflow.`,
+      proofDetected: customer.proofCount > 4,
+    },
+  ]
+
+  const generated = [...customer.interactions]
+  const timelineDates = [
+    'Jan 12',
+    'Jan 18',
+    'Jan 26',
+    'Feb 3',
+    'Feb 11',
+    'Feb 19',
+    'Mar 2',
+    'Mar 14',
+    'Mar 28',
+    'Apr 9',
+    'Apr 18',
+    'Apr 26',
+    'May 1',
+    'May 7',
+    'May 9',
+  ]
+  let index = 0
+  while (generated.length < customer.interactionCount) {
+    const template = templates[index % templates.length]
+    const date = timelineDates[(generated.length + index) % timelineDates.length]
+    generated.push({
+      ...template,
+      title: template.title,
+      date,
+      proofDetected: template.proofDetected || (customer.proofCount > 0 && index % 7 === 0),
+    })
+    index += 1
+  }
+
+  return generated.slice(0, customer.interactionCount)
+}
+
+function keyInteractions(interactions: Interaction[]) {
+  const keyItems = interactions.filter((interaction) => interaction.proofDetected || ['Discovery call', 'Decision call', 'Outcome review'].some((title) => interaction.title.includes(title)))
+  return (keyItems.length ? keyItems : interactions).slice(0, 8)
+}
+
+function chunkItems<T>(items: T[], size: number) {
+  const chunks: T[][] = []
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size))
+  }
+  return chunks
+}
+
+function buildCustomerDataPoints(customer: Customer): CustomerDataPoint[] {
+  const primaryContact = customer.contacts[0]?.split(',')[0] ?? 'Main contact'
+  const items: CustomerDataPoint[] = [
+    {
+      type: 'Emails',
+      title: `Thread with ${primaryContact}`,
+      date: 'May 8',
+      source: 'Gmail',
+      status: customer.status === 'Active Deal' ? 'Proof detected' : 'Processed',
+      signal: `Captured buying context, latest objection around ${customer.objection}, and follow-up language for the account team.`,
+      detail: `Dalil matched this email to ${customer.name} through the sender domain and linked it to the current customer profile. The useful data is the objection language, buyer priority, and suggested next response.`,
+      emailThread: buildEmailThread(customer, 'buyer-context'),
+    },
+    {
+      type: 'Emails',
+      title: 'Renewal and expansion notes',
+      date: 'Apr 26',
+      source: 'Gmail',
+      status: customer.proofCount > 4 ? 'Proof detected' : 'Processed',
+      signal: 'Customer language indicates what improved after rollout and which claims should be reviewed for reusable proof.',
+      detail: 'This thread contains customer language that can become an internal proof card after review. It is tagged for expansion, outcome language, and customer-approved quote follow-up.',
+      emailThread: buildEmailThread(customer, 'renewal'),
+    },
+    {
+      type: 'Emails',
+      title: 'Pricing concern reply',
+      date: 'Apr 19',
+      source: 'Gmail',
+      status: 'Processed',
+      signal: `Captured how ${customer.name} framed budget, urgency, and the business case needed to continue.`,
+      detail: 'Useful for deal context and objection handling. The email gives the agent a grounded way to draft follow-ups without inventing the buyer concern.',
+      emailThread: buildEmailThread(customer, 'pricing'),
+    },
+    {
+      type: 'Emails',
+      title: 'Stakeholder intro thread',
+      date: 'Apr 12',
+      source: 'Gmail',
+      status: 'Processed',
+      signal: 'Identified additional stakeholders and mapped who cares about adoption, reporting, and risk.',
+      detail: 'The thread is primarily relationship data, not proof. Dalil keeps it available so the customer agent understands the buying committee.',
+      emailThread: buildEmailThread(customer, 'stakeholders'),
+    },
+    {
+      type: 'Emails',
+      title: 'Proof request from buyer',
+      date: 'Mar 28',
+      source: 'Gmail',
+      status: 'Proof detected',
+      signal: `Buyer asked for examples from similar ${customer.industry} companies and teams at ${customer.size}.`,
+      detail: 'This is activation data. It explains which proof should be retrieved from the library when similar objections appear in future deals.',
+      emailThread: buildEmailThread(customer, 'proof-request'),
+    },
+    {
+      type: 'Emails',
+      title: 'Implementation follow-up',
+      date: 'Mar 21',
+      source: 'Gmail',
+      status: 'Needs review',
+      signal: `Mentions ${customer.objection} but needs human review before turning into a proof point.`,
+      detail: 'The language is promising, but the claim is not specific enough yet. Dalil flags it for review instead of treating it as verified evidence.',
+      emailThread: buildEmailThread(customer, 'implementation'),
+    },
+    {
+      type: 'Call transcripts',
+      title: `${customer.name} QBR transcript`,
+      date: 'May 7',
+      source: 'Zoom transcript',
+      status: 'Proof detected',
+      signal: `Outcome language, buyer priorities, and ${customer.proofCount} proof candidates were extracted for review.`,
+      detail: 'The transcript includes measurable outcomes, qualitative customer language, and a clear description of what changed after rollout.',
+    },
+    {
+      type: 'Call transcripts',
+      title: 'Product demo transcript',
+      date: 'Week 2',
+      source: 'Gong',
+      status: 'Processed',
+      signal: `Recorded stakeholder reactions, competitor comparison, and evidence requested before moving to ${customer.stage}.`,
+      detail: 'Useful for understanding evaluation criteria. It is attached to the timeline but stored as raw data because the transcript can be searched later.',
+    },
+    {
+      type: 'Call transcripts',
+      title: 'Security review call',
+      date: 'Apr 30',
+      source: 'Gong',
+      status: customer.stage === 'Security Review' ? 'Needs review' : 'Processed',
+      signal: 'Captured implementation, security, and procurement concerns from the technical review.',
+      detail: 'This helps the agent prepare future security conversations and retrieve proof from customers that passed similar reviews.',
+    },
+    {
+      type: 'Call transcripts',
+      title: 'Champion sync recording',
+      date: 'Apr 16',
+      source: 'Zoom transcript',
+      status: 'Processed',
+      signal: 'Captured the internal business case the champion planned to bring to leadership.',
+      detail: 'Champion language is retained because it often becomes the best phrasing for follow-up emails and late-stage proof activation.',
+    },
+    {
+      type: 'Call transcripts',
+      title: 'Implementation kickoff',
+      date: 'Mar 11',
+      source: 'Google Meet',
+      status: 'Processed',
+      signal: 'Recorded rollout goals, owner responsibilities, and expected success criteria.',
+      detail: 'The kickoff transcript creates the baseline Dalil uses when later detecting whether the customer achieved their original goals.',
+    },
+    {
+      type: 'Call transcripts',
+      title: 'Customer interview',
+      date: 'Feb 22',
+      source: 'Uploaded transcript',
+      status: 'Proof detected',
+      signal: 'Contains customer quote candidates and before/after story details.',
+      detail: 'This is high-value production data. It can support a case study draft, proof card, quote bank, and website proof block after approval.',
+    },
+    {
+      type: 'Meeting notes',
+      title: 'Discovery notes',
+      date: 'Week 1',
+      source: 'Calendar note',
+      status: 'Processed',
+      signal: `Summarized customer goals, target persona, and what ${customer.name} needs help proving internally.`,
+      detail: 'These notes give the customer agent baseline context: why the customer engaged, which pains matter, and how success should be described.',
+    },
+    {
+      type: 'Meeting notes',
+      title: 'Demo follow-up notes',
+      date: 'Week 2',
+      source: 'Sales note',
+      status: 'Processed',
+      signal: 'Captured the reactions, feature interests, and unresolved questions after the product walkthrough.',
+      detail: 'Useful for the journey summary and for explaining why certain proof assets are relevant to this customer.',
+    },
+    {
+      type: 'Meeting notes',
+      title: 'Procurement prep',
+      date: 'Apr 7',
+      source: 'RevOps note',
+      status: 'Needs review',
+      signal: 'Summarized budget owner, approval path, and possible friction points.',
+      detail: 'This is mostly activation context. It helps the agent prepare talk tracks and follow-ups for similar late-stage deals.',
+    },
+    {
+      type: 'Meeting notes',
+      title: 'Post-sale check-in',
+      date: 'Apr 24',
+      source: 'CS note',
+      status: 'Proof detected',
+      signal: 'Customer described what improved after adoption and where the team still wants more support.',
+      detail: 'The positive language is routed to proof review. The open needs stay in the customer profile so recommendations remain honest.',
+    },
+    {
+      type: 'Meeting notes',
+      title: 'Leadership review',
+      date: 'May 1',
+      source: 'Founder note',
+      status: 'Processed',
+      signal: 'Captured executive priorities and the story leadership wants to tell internally.',
+      detail: 'This helps separate sales narrative from verified proof. It also gives Dalil the language to use in internal-facing collateral.',
+    },
+    {
+      type: 'Uploads',
+      title: 'Founder notes import',
+      date: 'Apr 10',
+      source: 'Manual upload',
+      status: 'Processed',
+      signal: 'Historical context from founder-led sales was added to the customer profile for backfill.',
+      detail: 'Backfill data is important for early-stage companies because much of the customer history lives in founder memory or old docs.',
+    },
+    {
+      type: 'Uploads',
+      title: 'Usage metrics export',
+      date: 'Apr 18',
+      source: 'CSV upload',
+      status: customer.proofCount > 0 ? 'Proof detected' : 'Needs review',
+      signal: `Metric candidates were matched against existing claims for ${customer.industry}.`,
+      detail: 'Metrics are treated as stronger proof than qualitative claims. Dalil flags the rows that appear to support a customer outcome.',
+    },
+    {
+      type: 'Uploads',
+      title: 'Sales deck snippets',
+      date: 'Apr 9',
+      source: 'PDF upload',
+      status: 'Processed',
+      signal: 'Imported prior messaging, logo usage, and claims already used by the team.',
+      detail: 'This helps Dalil avoid generating collateral that conflicts with current positioning or unapproved customer language.',
+    },
+    {
+      type: 'Uploads',
+      title: 'Slack screenshot pack',
+      date: 'Mar 31',
+      source: 'Image upload',
+      status: 'Needs review',
+      signal: 'Contains possible praise and internal customer context, but needs review before extraction.',
+      detail: 'Screenshots can include sensitive context. Dalil keeps them separate and requires review before converting anything into proof.',
+    },
+    {
+      type: 'Uploads',
+      title: 'Implementation checklist',
+      date: 'Mar 14',
+      source: 'Doc upload',
+      status: 'Processed',
+      signal: 'Captured rollout steps, dependencies, and responsibilities from the implementation plan.',
+      detail: 'Useful for comparing expected rollout effort to actual outcomes in later proof generation.',
+    },
+    {
+      type: 'Uploads',
+      title: 'Customer testimonial draft',
+      date: 'Feb 27',
+      source: 'Doc upload',
+      status: 'Proof detected',
+      signal: 'Contains quote candidates and a narrative arc for a future customer story.',
+      detail: 'This is production-ready input, but approval status still matters before anything is used externally.',
+    },
+    {
+      type: 'CRM notes',
+      title: `${customer.stage} opportunity notes`,
+      date: 'May 3',
+      source: 'HubSpot',
+      status: 'Processed',
+      signal: `Deal stage, value, stakeholders, and close-plan context were synced into the account profile.`,
+      detail: 'CRM data gives the profile commercial context and keeps the customer agent aware of stage, value, and ownership.',
+    },
+    {
+      type: 'CRM notes',
+      title: 'MEDDICC fields',
+      date: 'Apr 27',
+      source: 'HubSpot',
+      status: 'Processed',
+      signal: 'Synced decision criteria, economic buyer, pain, and champion notes.',
+      detail: 'These fields help proof activation because Dalil can match proof to the buyer’s stated decision criteria.',
+    },
+    {
+      type: 'CRM notes',
+      title: 'Objection history',
+      date: 'Apr 21',
+      source: 'Salesforce import',
+      status: 'Proof detected',
+      signal: `Linked historical objections to ${customer.objection} and similar proof used in prior deals.`,
+      detail: 'This supports the recommendation layer by showing which proof was used against comparable objections.',
+    },
+    {
+      type: 'CRM notes',
+      title: 'Close plan update',
+      date: 'Apr 14',
+      source: 'HubSpot',
+      status: 'Processed',
+      signal: 'Captured next steps, owner, timeline, and open approval risks.',
+      detail: 'Close-plan data is kept as activation context, not proof. It informs what the agent recommends before upcoming meetings.',
+    },
+    {
+      type: 'CRM notes',
+      title: 'Lost or delayed reason',
+      date: 'Mar 29',
+      source: 'CRM note',
+      status: customer.status === 'Closed Lost' ? 'Needs review' : 'Processed',
+      signal: 'Captured friction that may inform future positioning and objection handling.',
+      detail: 'Even when it is not positive proof, this data helps Dalil understand why deals slow down and which proof might reduce risk next time.',
+    },
+    {
+      type: 'Manual notes',
+      title: 'Internal proof review',
+      date: 'May 5',
+      source: 'Dalil note',
+      status: 'Needs review',
+      signal: 'Team notes identify which claims can stay internal and which may need customer approval before external use.',
+      detail: 'This is the human approval layer. It prevents rough customer evidence from being treated as externally approved collateral.',
+    },
+    {
+      type: 'Manual notes',
+      title: 'Founder memory dump',
+      date: 'Apr 20',
+      source: 'Manual input',
+      status: 'Processed',
+      signal: `Captured why ${customer.name} bought, what alternatives they considered, and what made the story memorable.`,
+      detail: 'Founder memory is valuable but unstructured. Dalil turns it into searchable context while keeping claims separate from verified proof.',
+    },
+    {
+      type: 'Manual notes',
+      title: 'Approval checklist',
+      date: 'Apr 15',
+      source: 'Dalil note',
+      status: 'Processed',
+      signal: 'Tracked which assets are internal only, customer approved, or public.',
+      detail: 'Approval metadata matters because the same proof can be useful internally before it is safe to publish publicly.',
+    },
+    {
+      type: 'Manual notes',
+      title: 'Sales-use guidance',
+      date: 'Apr 6',
+      source: 'Manual input',
+      status: 'Proof detected',
+      signal: 'Captured where this story is strongest and which prospect objections it should answer.',
+      detail: 'This turns raw proof into activation guidance so sales teams know when to use the customer story.',
+    },
+    {
+      type: 'Manual notes',
+      title: 'Customer story angle',
+      date: 'Mar 25',
+      source: 'Content note',
+      status: 'Processed',
+      signal: 'Defined the best narrative angle for future collateral based on industry, persona, and outcome.',
+      detail: 'This helps generated assets stay focused instead of becoming generic case-study copy.',
+    },
+  ]
+
+  return varyCustomerData(customer, items).map((item) => item.emailThread ? item : { ...item, rawSections: buildRawDataSections(customer, item) })
+}
+
+function varyCustomerData(customer: Customer, items: CustomerDataPoint[]) {
+  const limits: Record<DataTab, number> = {
+    Emails: 3 + (customer.status === 'Active Deal' || customer.status === 'At Risk' ? 2 : 0) + (customer.id.length % 2),
+    'Call transcripts': 2 + (customer.proofCount > 6 ? 2 : 0) + (customer.stage === 'Security Review' ? 1 : 0),
+    'Meeting notes': 3 + (customer.status === 'Live' || customer.status === 'Expanding' ? 1 : 0) + (customer.id.charCodeAt(0) % 2),
+    Uploads: 2 + (customer.proofCount > 4 ? 2 : 0) + (customer.status === 'Closed Lost' ? 0 : 1),
+    'CRM notes': 2 + (customer.status === 'Active Deal' || customer.status === 'Closed Lost' ? 2 : 1),
+    'Manual notes': 2 + (customer.status === 'Closed' || customer.status === 'Live' ? 2 : 0) + (customer.id.charCodeAt(customer.id.length - 1) % 2),
+  }
+
+  const priorityTitles = new Set([
+    `Thread with ${customer.contacts[0]?.split(',')[0] ?? 'Main contact'}`,
+    `${customer.name} QBR transcript`,
+    `${customer.stage} opportunity notes`,
+    'Discovery notes',
+    'Founder notes import',
+    'Internal proof review',
+  ])
+
+  return dataTabs.flatMap((tab) => {
+    const tabItems = items.filter((item) => item.type === tab)
+    const prioritized = tabItems.filter((item) => priorityTitles.has(item.title))
+    const variable = tabItems.filter((item) => !priorityTitles.has(item.title))
+    const offset = customer.id.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0) % Math.max(variable.length, 1)
+    const rotated = variable.slice(offset).concat(variable.slice(0, offset))
+    return [...prioritized, ...rotated].slice(0, Math.min(limits[tab], tabItems.length))
+  })
+}
+
+function buildDataSources(customer: Customer): DataSource[] {
+  return [
+    {
+      name: 'Email capture',
+      source: `${customer.website} domain`,
+      status: 'Connected',
+      detail: `Matches relevant messages from approved contacts at ${customer.website} and routes them to this profile.`,
+      cadence: 'Live capture',
+    },
+    {
+      name: 'Call transcripts',
+      source: 'Zoom + Gong',
+      status: 'Configured',
+      detail: 'Adds transcripts when meeting attendees match customer contacts or the deal calendar event.',
+      cadence: 'After meetings',
+    },
+    {
+      name: 'Calendar connection',
+      source: 'Google Calendar',
+      status: 'Connected',
+      detail: 'Detects upcoming meetings with this customer and triggers pre-meeting briefs, proof recommendations, and follow-up preparation.',
+      cadence: 'Live schedule',
+    },
+    {
+      name: 'CRM context',
+      source: 'HubSpot',
+      status: 'Connected',
+      detail: 'Syncs stage, value, owner notes, close-plan updates, and objection fields.',
+      cadence: 'Every 2 hours',
+    },
+  ]
+}
+
+function buildProofAssets(customer: Customer): ProofAsset[] {
+  return customer.proof.flatMap((proof) => {
+    const assets: ProofAsset[] = [
+      {
+        id: `${proof.id}-quote`,
+        type: 'Quote',
+        text: `"${proof.quote}"`,
+        source: proof.sourceInteraction,
+        approval: proof.approval,
+        parentProof: proof,
+      },
+      {
+        id: `${proof.id}-metric`,
+        type: 'Metric',
+        text: proof.metric,
+        source: proof.sourceInteraction,
+        approval: proof.approval,
+        parentProof: proof,
+      },
+      {
+        id: `${proof.id}-outcome`,
+        type: 'Outcome',
+        text: proof.claim,
+        source: proof.sourceInteraction,
+        approval: proof.approval,
+        parentProof: proof,
+      },
+      {
+        id: `${proof.id}-objection`,
+        type: 'Objection',
+        text: `Use when the concern is ${proof.counterObjections[0] ?? proof.bestFor}.`,
+        source: proof.sourceInteraction,
+        approval: proof.approval,
+        parentProof: proof,
+      },
+      {
+        id: `${proof.id}-snippet`,
+        type: 'Sales snippet',
+        text: `${customer.name} is a useful example for ${proof.bestFor.toLowerCase()}.`,
+        source: proof.sourceInteraction,
+        approval: proof.approval,
+        parentProof: proof,
+      },
+    ]
+
+    return assets.filter((asset) => asset.text.trim() && !asset.text.includes('""'))
+  })
+}
+
+function buildCollateralDocument(customer: Customer, asset: Collateral): RawDataSection[] {
+  const primaryProof = customer.proof[0]
+  const quote = primaryProof?.quote ?? 'Customer proof is available for internal review.'
+  const metric = primaryProof?.metric ?? `${customer.proofCount} proof points extracted`
+  const objection = customer.objection || 'credibility risk'
+
+  if (customer.id === 'brightcart' && asset.type.toLowerCase().includes('case')) {
+    return [
+      {
+        title: 'Case study draft',
+        lines: [
+          'BrightCart helps ecommerce teams manage customer onboarding at scale. As the company moved upmarket, its post-sales team was spending too much time preparing each launch manually and pulling engineering into repeat customer questions.',
+          'The team did not lack customer success. The problem was that every successful rollout created useful proof, but that proof lived across call transcripts, renewal emails, founder notes, and internal handoff docs.',
+        ],
+      },
+      {
+        title: 'Challenge',
+        lines: [
+          'BrightCart needed to show prospects that a lean post-sales team could support more launches without slowing down implementation.',
+          'Sales also needed credible examples without asking the founder or CS team to reconstruct the customer story before every deal.',
+        ],
+      },
+      {
+        title: 'How Dalil helped',
+        lines: [
+          'Dalil backfilled BrightCart customer data from founder notes, a QBR transcript, and a renewal email from Maya Patel, VP Ops.',
+          'The platform extracted reusable proof points: a 42% reduction in onboarding prep, a customer-approved quote, and objection-handling snippets around implementation bandwidth.',
+          'Those proof points were turned into a sales proof card and a case study draft that could be reviewed before external use.',
+        ],
+      },
+      {
+        title: 'Results',
+        lines: [
+          'Reduced onboarding prep time by 42%.',
+          'Created 11 reusable proof assets from existing customer data.',
+          'Gave sales a customer-backed example to use when prospects worry implementation will require too much internal bandwidth.',
+        ],
+      },
+      {
+        title: 'Customer quote',
+        lines: [
+          '"We got customers live without waiting on engineering every time."',
+        ],
+      },
+      {
+        title: 'Sales use',
+        lines: [
+          'Use this case study when a prospect says implementation will require too much internal bandwidth.',
+          'Best fit: lean post-sales teams, ecommerce SaaS companies, and founder-led startups trying to compete with larger vendors on credibility.',
+        ],
+      },
+    ]
+  }
+
+  if (asset.type.toLowerCase().includes('case')) {
+    return [
+      {
+        title: 'Customer story',
+        lines: [
+          `${customer.name} is a ${customer.industry} company that needed a clearer way to turn customer relationship context into sales-ready proof.`,
+          `The team was trying to address ${objection.toLowerCase()} while keeping the sales process credible and lightweight.`,
+        ],
+      },
+      {
+        title: 'Result',
+        lines: [
+          `${metric}.`,
+          `"${quote}"`,
+        ],
+      },
+      {
+        title: 'How to use it',
+        lines: [
+          asset.summary,
+          `Best used with prospects who are evaluating whether Dalil can help a ${customer.size} team turn scattered customer data into repeatable proof.`,
+        ],
+      },
+    ]
+  }
+
+  return [
+    {
+      title: asset.title,
+      lines: [
+        asset.summary,
+        `${customer.name} provides a reusable proof example for conversations around ${objection.toLowerCase()}.`,
+      ],
+    },
+    {
+      title: 'Sales-ready copy',
+      lines: [
+        `${customer.name} used Dalil to convert customer context into reusable proof assets, giving the team clearer evidence to use in active deals.`,
+        `Relevant proof: ${metric}.`,
+        `Customer language: "${quote}"`,
+      ],
+    },
+  ]
+}
+
+function buildCollateralContext(customer: Customer, asset: Collateral) {
+  return [
+    `Generated from ${customer.name} proof points, collateral status, and source interactions.`,
+    `Primary source: ${customer.proof[0]?.sourceInteraction ?? 'customer data profile'}.`,
+    `Approval status: ${asset.status}.`,
+    `Recommended use: ${asset.type.toLowerCase().includes('case') ? 'send as a customer story or use in a sales deck.' : 'reuse in emails, proof cards, or deal prep.'}`,
+    `Main objection this helps address: ${customer.objection}.`,
+  ]
+}
+
+function buildGeneralCollaterals(customers: Customer[]): Collateral[] {
+  const proofTotal = customers.reduce((sum, customer) => sum + customer.proofCount, 0)
+  return [
+    {
+      title: 'Homepage proof block',
+      type: 'Website copy',
+      status: 'Internal Only',
+      summary: `Company-wide proof section using ${proofTotal} proof points across customer outcomes, quotes, and metrics.`,
+    },
+    {
+      title: 'LinkedIn customer proof post',
+      type: 'Marketing post',
+      status: 'Internal Only',
+      summary: 'Founder-style post about turning scattered customer wins into sales-ready proof.',
+    },
+    {
+      title: 'Investor traction snippet',
+      type: 'Investor update',
+      status: 'Internal Only',
+      summary: 'Short investor-facing proof summary covering customer outcomes, repeatability, and strongest segments.',
+    },
+    {
+      title: 'Implementation objection battlecard',
+      type: 'Sales enablement',
+      status: 'Internal Only',
+      summary: 'Reusable talk tracks and proof assets for prospects worried about implementation bandwidth.',
+    },
+  ]
+}
+
+function buildLibraryProofGroups(assets: ProofAsset[], customers: Customer[]) {
+  const count = (type: ProofAsset['type']) => assets.filter((asset) => asset.type === type).length
+  const frequentObjections = [...new Set(customers.map((customer) => customer.objection).filter(Boolean))].slice(0, 3)
+  return [
+    { title: 'Quotes', count: count('Quote'), detail: 'Customer language that can be used in proof cards, emails, and website copy.' },
+    { title: 'Metrics', count: count('Metric'), detail: 'Quantified outcomes such as faster onboarding, reduced prep, or improved team capacity.' },
+    { title: 'Outcomes achieved', count: count('Outcome'), detail: 'Before-and-after claims that explain what changed for customers.' },
+    { title: 'Objections overcome', count: count('Objection'), detail: frequentObjections.length ? frequentObjections.join(', ') : 'Implementation risk, incumbent trust, and ROI.' },
+    { title: 'Sales snippets', count: count('Sales snippet'), detail: 'Short reusable lines for follow-up emails, meeting prep, and active deal support.' },
+    { title: 'Proof gaps', count: customers.filter((customer) => customer.proofCount < 3).length, detail: 'Customers or segments that still need stronger evidence before they can support sales.' },
+  ]
+}
+
+function buildUpcomingItems(customer: Customer): UpcomingItem[] {
+  const contact = customer.contacts[0]?.split(',')[0] ?? 'Main contact'
+  const items: UpcomingItem[] = [
+    {
+      type: 'Meeting',
+      title: `${customer.stage === 'Closed Won' ? 'QBR' : customer.stage} prep`,
+      due: 'Tomorrow, 2:00 PM',
+      source: 'Calendar connection',
+      summary: `Upcoming meeting detected with ${contact}. Dalil should prepare a short brief with the current objection and proof to mention.`,
+      context: [
+        `Calendar event includes ${contact} and is linked to ${customer.name}.`,
+        `Current stage is ${customer.stage}; main objection is ${customer.objection}.`,
+        `Relevant data sources: calendar connection, CRM context, recent emails, and proof library.`,
+      ],
+      recommendedAction: `Prepare a pre-meeting brief for ${customer.name} focused on ${customer.objection}.`,
+    },
+    {
+      type: 'Email',
+      title: 'Follow-up email needs response',
+      due: 'Due today',
+      source: 'Gmail capture',
+      summary: `${contact} asked for a concise example from a similar customer and has not received a final response yet.`,
+      context: [
+        `Email was matched to ${customer.website} and routed into this customer profile.`,
+        `The request asks for proof relevant to ${customer.industry} and ${customer.size}.`,
+        `Best response should include one proof point, one metric, and a short explanation of fit.`,
+      ],
+      recommendedAction: `Draft a follow-up email to ${contact} using the strongest proof for ${customer.objection}.`,
+    },
+    {
+      type: 'Issue',
+      title: `${customer.objection} still unresolved`,
+      due: customer.status === 'At Risk' ? 'High priority' : 'Before next meeting',
+      source: customer.status === 'At Risk' ? 'CS note + CRM' : 'CRM objection history',
+      summary: `The account still has an open concern around ${customer.objection.toLowerCase()}, which should be addressed before the next customer touchpoint.`,
+      context: [
+        `CRM notes list ${customer.objection} as the primary risk.`,
+        `Timeline includes proof requests and stakeholder review activity.`,
+        `Dalil can retrieve similar customer stories and turn them into objection-handling language.`,
+      ],
+      recommendedAction: `Find proof that addresses ${customer.objection} and create a short talk track for the next touchpoint.`,
+    },
+  ]
+
+  if (customer.status === 'Live' || customer.status === 'Expanding') {
+    return items
+  }
+
+  if (customer.status === 'Closed Lost') {
+    return items.filter((item) => item.type !== 'Meeting')
+  }
+
+  return items.slice(0, 2 + (customer.status === 'At Risk' ? 1 : 0))
+}
+
+function iconForUpcoming(type: UpcomingItem['type']) {
+  if (type === 'Meeting') return <Clock3 size={16} />
+  if (type === 'Email') return <Mail size={16} />
+  return <Activity size={16} />
+}
+
+function buildConfiguredCaptureSource(customer: Customer, type: CaptureSourceType, draft: CaptureSetupDraft): DataSource {
+  const matchTarget = draft.matchTarget.trim()
+  const provider = draft.provider.trim()
+  const rule = draft.rule.trim()
+  const sources: Record<CaptureSourceType, DataSource> = {
+    Email: {
+      name: `Email rule: ${matchTarget || customer.website}`,
+      source: matchTarget || customer.website,
+      status: 'Connected',
+      detail: rule || 'Captures relevant emails from the customer domain and selected internal aliases.',
+      cadence: 'Live capture',
+    },
+    Calendar: {
+      name: `Calendar rule: ${matchTarget || customer.name}`,
+      source: provider || 'Google Calendar',
+      status: 'Connected',
+      detail: rule || 'Detects upcoming customer meetings and prepares briefs with relevant proof, objections, and suggested follow-ups.',
+      cadence: 'Live schedule',
+    },
+    Calls: {
+      name: `Transcript rule: ${provider || 'Zoom/Gong'}`,
+      source: provider || 'Calendar + Zoom',
+      status: 'Configured',
+      detail: rule || 'Pulls transcripts when a calendar event includes this customer or related deal contacts.',
+      cadence: 'After meetings',
+    },
+    CRM: {
+      name: `CRM sync: ${provider || 'HubSpot'}`,
+      source: provider || 'HubSpot pipeline fields',
+      status: 'Connected',
+      detail: rule || 'Maps opportunity fields, notes, objection history, and stage movement into this customer profile.',
+      cadence: 'Every 2 hours',
+    },
+    Slack: {
+      name: `Slack scan: ${matchTarget || 'approved channels'}`,
+      source: matchTarget || '#sales-wins, #customer-success',
+      status: 'Configured',
+      detail: rule || 'Watches approved channels for customer mentions, praise, outcomes, and proof candidates.',
+      cadence: 'Daily scan',
+    },
+    'Manual upload': {
+      name: `Upload inbox: ${matchTarget || customer.name}`,
+      source: matchTarget || 'Uploads, pasted notes, forwarded files',
+      status: 'Manual',
+      detail: rule || 'Lets the team backfill old customer data or add one-off source material directly.',
+      cadence: 'On demand',
+    },
+  }
+
+  return sources[type]
+}
+
+function captureSourcePreview(customer: Customer, type: CaptureSourceType, draft: CaptureSetupDraft) {
+  const matchTarget = draft.matchTarget.trim()
+  const provider = draft.provider.trim()
+  const previews: Record<CaptureSourceType, string> = {
+    Email: `Watch ${matchTarget || customer.website} for relevant customer emails.`,
+    Calendar: `Watch ${provider || 'Google Calendar'} for meetings matching ${matchTarget || customer.name} and trigger pre-meeting briefs.`,
+    Calls: `Pull transcripts from ${provider || 'Zoom/Gong'} when meetings match this customer.`,
+    CRM: `Sync ${provider || 'HubSpot'} fields for ${customer.name}: stage, value, notes, objections, and close plan.`,
+    Slack: `Scan ${matchTarget || 'selected Slack channels'} for proof mentions and outcome language.`,
+    'Manual upload': `Create a backfill inbox for ${matchTarget || customer.name} source material.`,
+  }
+
+  return previews[type]
+}
+
+function buildRawDataSections(customer: Customer, item: CustomerDataPoint): RawDataSection[] {
+  if (item.type === 'Call transcripts') {
+    return [
+      {
+        title: 'Transcript excerpt',
+        lines: [
+          `${customer.contacts[0]?.split(',')[0] ?? 'Customer'}: The challenge is not that we lack happy customers. The challenge is that the proof is scattered across calls, emails, and old notes.`,
+          `Dalil: When a prospect asks for evidence, what happens today?`,
+          `${customer.contacts[0]?.split(',')[0] ?? 'Customer'}: Someone usually asks the founder or searches through old folders. It works, but it does not scale.`,
+          `Dalil: So the useful output is not just a case study. It is a reusable proof profile tied to objections like ${customer.objection.toLowerCase()}.`,
+          `${customer.contacts[0]?.split(',')[0] ?? 'Customer'}: Exactly. If sales can pull the right example before a meeting, that is the real value.`,
+        ],
+      },
+      {
+        title: 'Transcript markers',
+        lines: [
+          `00:04:18 - Buyer describes current workflow and proof gaps.`,
+          `00:11:42 - Mention of ${customer.objection.toLowerCase()} as a decision risk.`,
+          `00:24:06 - Customer gives a quote candidate for internal review.`,
+          `00:31:33 - Next step: generate proof card and follow-up email draft.`,
+        ],
+      },
+    ]
+  }
+
+  if (item.type === 'Meeting notes') {
+    return [
+      {
+        title: 'Meeting notes',
+        lines: [
+          `Customer goal: create a reliable way to use existing customer wins while selling to new ${customer.industry} prospects.`,
+          `Current pain: proof exists, but it is trapped in founder memory, calls, emails, CRM notes, and scattered documents.`,
+          `Primary concern: ${customer.objection}.`,
+          `What they like so far: customer-specific profile, proof extraction, and deal-specific recommendations.`,
+          `Open question: which proof can be used internally immediately versus which proof needs approval.`,
+        ],
+      },
+      {
+        title: 'Action items',
+        lines: [
+          `Upload strongest historical customer notes for backfill.`,
+          `Generate an internal proof card before the next stakeholder review.`,
+          `Tag proof candidates by persona, objection, and approval status.`,
+          `Prepare a short follow-up that references one similar customer story.`,
+        ],
+      },
+    ]
+  }
+
+  if (item.type === 'Uploads') {
+    return [
+      {
+        title: 'File preview',
+        lines: [
+          `File name: ${item.title.replace(/\s+/g, '-').toLowerCase()}.${item.source.includes('CSV') ? 'csv' : item.source.includes('PDF') ? 'pdf' : 'docx'}`,
+          `Imported from: ${item.source}`,
+          `Customer: ${customer.name}`,
+          `Detected pages/rows: ${item.source.includes('CSV') ? '128 rows' : '7 pages'}`,
+          `Processing result: ${item.status}`,
+        ],
+      },
+      {
+        title: 'Extracted raw content',
+        lines: [
+          `Before: the team relied on scattered notes and repeated founder context to answer proof requests.`,
+          `Need: reusable evidence that helps sales respond to objections around ${customer.objection.toLowerCase()}.`,
+          `Observed outcome: proof candidates were found across metrics, customer quotes, and implementation notes.`,
+          `Review note: keep external claims gated until customer approval is explicit.`,
+        ],
+      },
+    ]
+  }
+
+  if (item.type === 'CRM notes') {
+    return [
+      {
+        title: 'CRM fields',
+        lines: [
+          `Account: ${customer.name}`,
+          `Stage: ${customer.stage}`,
+          `Value: ${customer.value}`,
+          `Primary contact: ${customer.contacts[0] ?? 'Not captured'}`,
+          `Main objection: ${customer.objection}`,
+          `Health: ${customer.health}`,
+        ],
+      },
+      {
+        title: 'Rep notes',
+        lines: [
+          `Prospect needs proof that a lean team can adopt this without creating more process.`,
+          `Best next step is a concise proof card, not a long-form case study.`,
+          `Similar proof should come from customers in ${customer.industry} or adjacent operational SaaS segments.`,
+          `Flag for activation: prepare meeting brief with one metric, one quote, and one objection-handling bullet.`,
+        ],
+      },
+    ]
+  }
+
+  return [
+    {
+      title: 'Manual note',
+      lines: [
+        `${customer.name} is useful as a proof profile because the relationship captures both buying context and customer outcome language.`,
+        `The strongest story angle is tied to ${customer.objection.toLowerCase()} and the need to compete with more established vendors.`,
+        `Keep the raw note available for the customer agent, but only promote specific claims after review.`,
+        `Potential use: internal sales enablement, follow-up email draft, and customer story outline.`,
+      ],
+    },
+    {
+      title: 'Reviewer comments',
+      lines: [
+        `Good candidate for internal proof.`,
+        `Needs approval before public website copy.`,
+        `Tie any generated collateral back to source data and approval status.`,
+      ],
+    },
+  ]
+}
+
+function buildEmailThread(customer: Customer, kind: 'buyer-context' | 'renewal' | 'pricing' | 'stakeholders' | 'proof-request' | 'implementation'): EmailMessage[] {
+  const contact = customer.contacts[0]?.split(',')[0] ?? 'Customer contact'
+  const firstName = contact.split(' ')[0] || 'there'
+  const domain = customer.website || `${customer.id}.com`
+  const customerEmail = `${firstName.toLowerCase()}@${domain}`
+  const rep = 'Nora from Dalil'
+
+  const threads: Record<typeof kind, EmailMessage[]> = {
+    'buyer-context': [
+      {
+        from: contact,
+        to: rep,
+        time: 'May 8, 9:14 AM',
+        body: `Thanks for the recap. The main thing we are trying to solve is still ${customer.objection.toLowerCase()}. We have good customer conversations, but when leadership asks for proof from a similar company, it takes us too long to find the right example.`,
+      },
+      {
+        from: rep,
+        to: customerEmail,
+        time: 'May 8, 10:02 AM',
+        body: `That makes sense. I pulled the notes from the demo and the QBR transcript into the ${customer.name} profile. I am going to tag the objection and look for proof from similar ${customer.industry} teams so the follow-up is grounded in an existing customer story.`,
+      },
+      {
+        from: contact,
+        to: rep,
+        time: 'May 8, 11:36 AM',
+        body: 'Perfect. If you can show the team one strong example plus a short email draft, that would help us keep the evaluation moving without creating another custom deck.',
+      },
+    ],
+    renewal: [
+      {
+        from: contact,
+        to: rep,
+        time: 'Apr 26, 2:18 PM',
+        body: `We are happy with the progress so far. The biggest change is that our team does not have to reconstruct the customer story from memory every time a prospect asks for proof.`,
+      },
+      {
+        from: rep,
+        to: customerEmail,
+        time: 'Apr 26, 2:44 PM',
+        body: 'That is useful context. Would you be comfortable with us turning that into an internal proof card for your account team first, then separately reviewing anything before it becomes public collateral?',
+      },
+      {
+        from: contact,
+        to: rep,
+        time: 'Apr 26, 3:11 PM',
+        body: 'Yes, internal is fine. For anything public, send us the exact language first. The strongest angle is probably faster handoffs and fewer repeated questions from sales.',
+      },
+    ],
+    pricing: [
+      {
+        from: contact,
+        to: rep,
+        time: 'Apr 19, 8:57 AM',
+        body: `The price is workable if we can show this helps the team close the credibility gap with larger vendors. The question from our founder is whether this becomes another system to maintain.`,
+      },
+      {
+        from: rep,
+        to: customerEmail,
+        time: 'Apr 19, 9:32 AM',
+        body: `Understood. I would frame this around reuse: the same proof profile should support sales snippets, case-study drafts, and deal-specific recommendations. I can also send examples from teams using Dalil as a light proof layer instead of a heavy content process.`,
+      },
+      {
+        from: contact,
+        to: rep,
+        time: 'Apr 19, 10:05 AM',
+        body: 'That would help. Please keep it focused on practical sales use. We do not need a broad content platform pitch.',
+      },
+    ],
+    stakeholders: [
+      {
+        from: contact,
+        to: rep,
+        time: 'Apr 12, 1:20 PM',
+        body: 'Looping in Sam from RevOps and Leila from Customer Success. Sam cares about how this fits our sales workflow. Leila has the best context on where the customer outcome data lives today.',
+      },
+      {
+        from: 'Sam Rivera',
+        to: rep,
+        time: 'Apr 12, 2:04 PM',
+        body: 'My main question is whether reps can find the right proof without asking marketing or the founder. If this takes more than a minute during deal prep, adoption will be hard.',
+      },
+      {
+        from: 'Leila Haddad',
+        to: rep,
+        time: 'Apr 12, 2:31 PM',
+        body: 'Most of our good proof is in QBR notes, renewal emails, and Slack threads. We can upload a few examples, but long term we need the system to catch new proof as it appears.',
+      },
+    ],
+    'proof-request': [
+      {
+        from: contact,
+        to: rep,
+        time: 'Mar 28, 4:22 PM',
+        body: `Do you have an example from another ${customer.industry} company around ${customer.objection.toLowerCase()}? The product looks useful, but our team will ask whether companies like us have actually made this work.`,
+      },
+      {
+        from: rep,
+        to: customerEmail,
+        time: 'Mar 28, 5:01 PM',
+        body: `Yes. I found a customer story with a similar team size and concern. The strongest proof is a measurable operational improvement plus a quote about making the process repeatable without relying on founder memory.`,
+      },
+      {
+        from: contact,
+        to: rep,
+        time: 'Mar 29, 8:17 AM',
+        body: 'Send that over. A concise proof card is better than a full case study for now. We need something the team can evaluate quickly before the next call.',
+      },
+    ],
+    implementation: [
+      {
+        from: contact,
+        to: rep,
+        time: 'Mar 21, 3:08 PM',
+        body: `Implementation is the one thing we need to be careful about. We have the raw customer data, but it is spread across calls, email, notes, and old decks. We cannot afford a long cleanup project.`,
+      },
+      {
+        from: rep,
+        to: customerEmail,
+        time: 'Mar 21, 3:47 PM',
+        body: 'The first pass can be a backfill: upload the most useful historical customer data, let Dalil structure it into proof profiles, then review what is strong enough to use. The always-on capture can come after that.',
+      },
+      {
+        from: contact,
+        to: rep,
+        time: 'Mar 21, 4:19 PM',
+        body: 'That sequence makes sense. We should start with our strongest happy customers and prove the library is useful before connecting more sources.',
+      },
+    ],
+  }
+
+  return threads[kind]
 }
 
 function Stat({ label, value, icon }: { label: string; value: number; icon: ReactNode }) {
@@ -1408,9 +3535,75 @@ function Field({ label, children, wide = false, required = false, hint }: { labe
   )
 }
 
-function Process({ state }: { state: 'reading' | 'extracting' | 'done' }) {
-  const steps = ['Reading sources', 'Extracting proof', 'Adding profile data']
-  return <div className="process">{steps.map((step, index) => <span className={state === 'done' || index <= (state === 'reading' ? 0 : 1) ? 'active' : ''} key={step}><CheckCircle2 size={15} /> {step}</span>)}</div>
+function CaptureSetupFields({ customer, draft, setDraft, type }: { customer: Customer; draft: CaptureSetupDraft; setDraft: (draft: CaptureSetupDraft) => void; type: CaptureSourceType }) {
+  const copy: Record<CaptureSourceType, { first: string; firstPlaceholder: string; second: string; secondPlaceholder: string; rule: string; rulePlaceholder: string }> = {
+    Email: {
+      first: 'Email/domain to match',
+      firstPlaceholder: customer.website,
+      second: 'Provider',
+      secondPlaceholder: 'Gmail',
+      rule: 'Relevance rule',
+      rulePlaceholder: 'Capture customer-domain emails that mention outcomes, objections, renewals, or proof requests.',
+    },
+    Calendar: {
+      first: 'Meeting match rule',
+      firstPlaceholder: `${customer.name}, ${customer.website}, or customer attendees`,
+      second: 'Calendar provider',
+      secondPlaceholder: 'Google Calendar',
+      rule: 'Brief trigger',
+      rulePlaceholder: 'Trigger a pre-meeting brief when an upcoming meeting includes customer contacts, open objections, or active deal context.',
+    },
+    Calls: {
+      first: 'Meeting match rule',
+      firstPlaceholder: `${customer.website} attendees or ${customer.name} calendar title`,
+      second: 'Transcript source',
+      secondPlaceholder: 'Zoom, Gong, Google Meet',
+      rule: 'Capture rule',
+      rulePlaceholder: 'Import transcript when customer contacts attend and the meeting is sales, CS, QBR, or implementation related.',
+    },
+    CRM: {
+      first: 'Opportunity/account match',
+      firstPlaceholder: customer.name,
+      second: 'CRM source',
+      secondPlaceholder: 'HubSpot',
+      rule: 'Fields to sync',
+      rulePlaceholder: 'Stage, owner notes, value, objections, competitors, next steps, close plan.',
+    },
+    Slack: {
+      first: 'Channels to scan',
+      firstPlaceholder: '#sales-wins, #customer-success',
+      second: 'Workspace',
+      secondPlaceholder: 'Company Slack',
+      rule: 'Mention rule',
+      rulePlaceholder: `Capture messages mentioning ${customer.name}, customer outcomes, praise, metrics, or objections overcome.`,
+    },
+    'Manual upload': {
+      first: 'Inbox name',
+      firstPlaceholder: `${customer.name} backfill`,
+      second: 'Accepted formats',
+      secondPlaceholder: 'PDF, DOCX, CSV, TXT, screenshots',
+      rule: 'Processing instruction',
+      rulePlaceholder: 'Extract outcomes, quotes, metrics, objections, personas, and approval status.',
+    },
+  }
+  const fields = copy[type]
+
+  return (
+    <div className="capture-form">
+      <label>
+        <span>{fields.first}</span>
+        <input value={draft.matchTarget} onChange={(event) => setDraft({ ...draft, matchTarget: event.target.value })} placeholder={fields.firstPlaceholder} />
+      </label>
+      <label>
+        <span>{fields.second}</span>
+        <input value={draft.provider} onChange={(event) => setDraft({ ...draft, provider: event.target.value })} placeholder={fields.secondPlaceholder} />
+      </label>
+      <label className="wide-field">
+        <span>{fields.rule}</span>
+        <textarea rows={2} value={draft.rule} onChange={(event) => setDraft({ ...draft, rule: event.target.value })} placeholder={fields.rulePlaceholder} />
+      </label>
+    </div>
+  )
 }
 
 function iconFor(type: InteractionType) {
@@ -1419,27 +3612,6 @@ function iconFor(type: InteractionType) {
   if (type === 'Transcript') return <Mic2 size={16} />
   if (type === 'Upload') return <Upload size={16} />
   return <FileText size={16} />
-}
-
-function ProofCard({ proof, onClick }: { proof: ProofPoint; onClick?: () => void }) {
-  if (onClick) {
-    return (
-      <button className="proof-card proof-card-button" type="button" onClick={onClick}>
-        <div className="proof-head"><span>{proof.sourceCustomer}</span><em>{proof.approval}</em></div>
-        <strong>{proof.claim}</strong>
-        <p>{proof.metric} · {proof.outcomeType}</p>
-        <blockquote>"{proof.quote}"</blockquote>
-      </button>
-    )
-  }
-  return (
-    <article className="proof-card">
-      <div className="proof-head"><span>{proof.sourceCustomer}</span><em>{proof.approval}</em></div>
-      <strong>{proof.claim}</strong>
-      <p>{proof.metric} · {proof.outcomeType}</p>
-      <blockquote>"{proof.quote}"</blockquote>
-    </article>
-  )
 }
 
 function ChipRow({ label, items }: { label: string; items: string[] }) {
@@ -1453,10 +3625,6 @@ function ChipRow({ label, items }: { label: string; items: string[] }) {
       )}
     </div>
   )
-}
-
-function AssetCard({ asset }: { asset: Collateral }) {
-  return <article className="asset-card"><div><strong>{asset.title}</strong><span>{asset.type} · {asset.status}</span></div><p>{asset.summary}</p></article>
 }
 
 function Insight({ title, detail }: { title: string; detail: string }) {
