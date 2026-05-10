@@ -187,7 +187,6 @@ type Customer = {
   collateral: Collateral[]
 }
 
-const customerStatuses: CustomerStatus[] = ['Active Deal', 'Onboarding', 'Live', 'Expanding', 'At Risk', 'Closed', 'Closed Lost']
 const dataTabs: DataTab[] = ['Emails', 'Call transcripts', 'Meeting notes', 'Uploads', 'CRM notes', 'Manual notes']
 const captureSourceOptions: CaptureSourceType[] = ['Email', 'Calendar', 'Calls', 'CRM', 'Slack', 'Manual upload']
 const defaultCaptureSetup: CaptureSetupDraft = {
@@ -952,7 +951,6 @@ function App() {
   const [selectedCollateralCustomer, setSelectedCollateralCustomer] = useState<Customer | null>(null)
   const [editingProof, setEditingProof] = useState(false)
   const [proofDraft, setProofDraft] = useState<ProofDraft | null>(null)
-  const [dashboardStatus, setDashboardStatus] = useState<CustomerStatus | 'All'>('All')
   const [libraryProofFilter, setLibraryProofFilter] = useState<ProofAsset['type'] | 'All'>('All')
   const [collateralCustomerFilter, setCollateralCustomerFilter] = useState('All')
   const [collateralCommunicationFilter, setCollateralCommunicationFilter] = useState('All')
@@ -1025,19 +1023,11 @@ function App() {
   )
   const stats = useMemo(
     () => ({
-      customers: customers.length,
       interactions: customers.reduce((sum, customer) => sum + buildInteractionHistory(customer).length, 0),
       proof: 64,
-      assets: 21,
     }),
     [customers],
   )
-  const statusCounts = useMemo(
-    () => customerStatuses.map((status) => ({ status, count: customers.filter((customer) => customer.status === status).length })),
-    [customers],
-  )
-  const dashboardCustomers = dashboardStatus === 'All' ? customers : customers.filter((customer) => customer.status === dashboardStatus)
-
   const overview = useMemo(() => {
     const parseValueK = (value: string) => {
       const match = value.match(/\$(\d+(?:\.\d+)?)K/i)
@@ -1104,6 +1094,61 @@ function App() {
         detail: `${customer.stage} · address "${customer.objection}" before the next touchpoint.`,
       }))
     return { activePipeline, closedArr, avgCycle, byStage, maxStage, byIndustry, byStatus, recentSignals, coverageGaps, objections, customersByIndustry, proofOpportunities, segmentInsights, activationPlays }
+  }, [customers])
+
+  const ceoDashboardBrief = useMemo(() => {
+    const activeRevenueCustomers = customers.filter((customer) => ['At Risk', 'Active Deal'].includes(customer.status))
+    const attentionCustomer = activeRevenueCustomers.find((customer) => customer.status === 'At Risk') ?? activeRevenueCustomers[0]
+    const upcoming = customers.flatMap((customer) => buildUpcomingItems(customer).slice(0, 1).map((item) => ({ customer, item })))[0]
+    const proofGapCustomer = activeRevenueCustomers.slice().sort((a, b) => a.proofCount - b.proofCount)[0]
+    const readyStory = customers
+      .map((customer) => ({
+        customer,
+        asset: customer.collateral.find((item) => item.status !== 'Internal Only'),
+        proof: customer.proof.find((proof) => proof.approval !== 'Internal Only'),
+      }))
+      .find((item) => item.asset || item.proof)
+    const actionCustomer = activeRevenueCustomers.find((customer) => customer.stage === 'Security Review') ?? activeRevenueCustomers[0]
+
+    return [
+      attentionCustomer && {
+        id: attentionCustomer.id,
+        category: 'Needs Attention',
+        title: `${attentionCustomer.name}: ${attentionCustomer.value} ${attentionCustomer.status.toLowerCase()}`,
+        evidence: `Grounded in CRM status "${attentionCustomer.status}", stage "${attentionCustomer.stage}", and objection "${attentionCustomer.objection}".`,
+        action: `Review whether ${attentionCustomer.name} needs founder involvement before the next touchpoint.`,
+      },
+      actionCustomer && {
+        id: actionCustomer.id,
+        category: 'CEO Actions',
+        title: `Decide how to handle ${actionCustomer.name}'s "${actionCustomer.objection.toLowerCase()}" concern`,
+        evidence: `Grounded in ${actionCustomer.name}'s ${actionCustomer.stage} stage, ${actionCustomer.value} value, and latest activity: ${actionCustomer.lastActivity}.`,
+        action: `Approve one customer story for this objection before the next sales follow-up.`,
+      },
+      upcoming && {
+        id: upcoming.customer.id,
+        category: 'Upcoming Meetings & Follow-ups',
+        title: `${upcoming.item.title} for ${upcoming.customer.name}`,
+        evidence: `Grounded in ${upcoming.item.source}; due ${upcoming.item.due}. ${upcoming.item.summary}`,
+        action: upcoming.item.recommendedAction,
+      },
+      readyStory && {
+        id: readyStory.customer.id,
+        category: 'Stories Ready for Approval',
+        title: readyStory.asset ? readyStory.asset.title : `${readyStory.customer.name}: ${readyStory.proof?.claim}`,
+        evidence: readyStory.asset
+          ? `Grounded in ${readyStory.customer.name}'s ${readyStory.asset.status.toLowerCase()} collateral draft.`
+          : `Grounded in ${readyStory.customer.name}'s ${readyStory.proof?.approval.toLowerCase()} proof point.`,
+        action: `Review for CEO approval before using it in public or high-value sales conversations.`,
+      },
+      proofGapCustomer && {
+        id: proofGapCustomer.id,
+        category: 'Revenue Proof Gaps',
+        title: `${proofGapCustomer.name}: ${proofGapCustomer.proofCount} proof assets attached to a ${proofGapCustomer.value} ${proofGapCustomer.status.toLowerCase()}`,
+        evidence: `Grounded in account stage "${proofGapCustomer.stage}" and objection "${proofGapCustomer.objection}".`,
+        action: `Check whether the existing proof is strong enough for this objection, or whether a similar customer story is needed.`,
+      },
+    ].filter((item): item is { id: string; category: string; title: string; evidence: string; action: string } => Boolean(item))
   }, [customers])
 
   const activeCount = customers.filter((customer) => ['Active Deal', 'At Risk'].includes(customer.status)).length
@@ -1601,18 +1646,18 @@ function App() {
     <main className="app-shell">
       <aside className="sidebar">
         <div className="brand">
-          <div className="brand-mark">د</div>
           <div className="brand-text">
             <strong>Dalil</strong>
           </div>
         </div>
         <nav>
           <NavButton active={view === 'dashboard'} icon={<Building2 size={18} />} label="Dashboard" onClick={() => setView('dashboard')} />
-          <NavButton active={view === 'customerInsights'} icon={<Layers3 size={18} />} label="Customer Insights" onClick={() => { setSelectedId(null); setView('customerInsights') }} />
-          <button className="sidebar-collapse" onClick={() => setCustomerListOpen((open) => !open)}>
+          <NavButton active={view === 'customerInsights'} icon={<Layers3 size={18} />} label="Company Health" onClick={() => { setSelectedId(null); setView('customerInsights') }} />
+          <button className={`sidebar-collapse ${view === 'customerDetail' ? 'active' : ''}`} onClick={() => setCustomerListOpen((open) => !open)}>
+            <Building2 size={18} />
+            <span className="nav-label">Customers</span>
+            <span className="customer-count">{customers.length}</span>
             <ChevronDown className={customerListOpen ? 'open' : ''} size={14} />
-            Customers
-            <span>{customers.length}</span>
           </button>
           {customerListOpen && (
             <div className="sidebar-subnav">
@@ -1631,7 +1676,7 @@ function App() {
       <section className="workspace">
         <header className="topbar">
           <div>
-            <h1>{view === 'dashboard' ? 'Customer Portfolio' : view === 'customerInsights' ? 'Customer Insights' : view === 'customerDetail' ? selected?.name ?? 'Customer' : view === 'collaterals' ? 'Collaterals' : 'Company Proof Memory'}</h1>
+            <h1 className={view === 'dashboard' ? 'dashboard-title' : ''}>{view === 'dashboard' ? 'Dashboard' : view === 'customerInsights' ? 'Company Health' : view === 'customerDetail' ? selected?.name ?? 'Customer' : view === 'collaterals' ? 'Collaterals' : 'Company Proof Memory'}</h1>
           </div>
           <div className="topbar-actions">
             {view !== 'dashboard' && <button className="search-button"><Search size={17} /> Search proof</button>}
@@ -1643,47 +1688,18 @@ function App() {
           {view === 'dashboard' && (
             <div className="dashboard-content">
               <section className="dashboard-main">
-                <div className="summary-strip">
-                  <Stat label="Total customers" value={stats.customers} icon={<Building2 size={18} />} />
-                  <Stat label="Proof points" value={stats.proof} icon={<Sparkles size={18} />} />
-                  <Stat label="Sales collateral" value={stats.assets} icon={<FileText size={18} />} />
+                <div className="dashboard-brief-grid">
+                  {ceoDashboardBrief.map((item) => (
+                    <section className="dashboard-brief-item" key={`${item.category}-${item.id}`}>
+                      <h2>{item.category}</h2>
+                      <button className="panel dashboard-brief-card" onClick={() => openCustomer(item.id)}>
+                        <strong>{item.title}</strong>
+                        <p>{item.evidence}</p>
+                        <em>{item.action}</em>
+                      </button>
+                    </section>
+                  ))}
                 </div>
-
-                  <div className="section-head">
-                    <h2>All customers</h2>
-                  </div>
-                  <div className="status-filters" aria-label="Filter customers by status">
-                    <button className={dashboardStatus === 'All' ? 'active' : ''} onClick={() => setDashboardStatus('All')}>
-                      All <span>{customers.length}</span>
-                    </button>
-                    {statusCounts.map(({ status, count }) => (
-                      <button key={status} className={dashboardStatus === status ? 'active' : ''} onClick={() => setDashboardStatus(status)}>
-                        {status} <span>{count}</span>
-                      </button>
-                    ))}
-                  </div>
-                  <div className="customer-grid">
-                    {dashboardCustomers.map((customer) => (
-                      <button className="customer-card" key={customer.id} onClick={() => openCustomer(customer.id)}>
-                        <div className="card-top">
-                          <div className="logo">{customer.logo}</div>
-                          <span className={`badge ${statusClass(customer.status)}`}>{customer.status}</span>
-                        </div>
-                        <div>
-                          <h3>{customer.name}</h3>
-                          <p>{customer.industry}</p>
-                        </div>
-                        <div className="card-meta">
-                          <span>{['Active Deal', 'At Risk'].includes(customer.status) ? customer.stage : `${customer.health} health`}</span>
-                          <div className="card-stats">
-                            <span>{buildInteractionHistory(customer).length} interactions</span>
-                            <span>{customer.proofCount} proof</span>
-                          </div>
-                        </div>
-                        <div className="last-activity"><Clock3 size={15} /> {customer.lastActivity}</div>
-                      </button>
-                    ))}
-                  </div>
               </section>
 
               <aside className="dashboard-agent">
@@ -1892,7 +1908,7 @@ function App() {
           {view === 'customerDetail' && selected && (
             <div className="customer-layout">
               <button className="back-link customer-back-link" onClick={() => { setSelectedId(null); setView('customerInsights') }}>
-                <ChevronLeft size={16} /> Customer Insights
+                <ChevronLeft size={16} /> Company Health
               </button>
               <div className="customer-tabs" aria-label="Customer sections">
                 <button className={customerSubView === 'insights' ? 'active' : ''} onClick={() => setCustomerSubView('insights')}>Customer Insights</button>
@@ -4676,10 +4692,6 @@ function buildEmailThread(customer: Customer, kind: 'buyer-context' | 'renewal' 
   }
 
   return threads[kind]
-}
-
-function Stat({ label, value, icon }: { label: string; value: number; icon: ReactNode }) {
-  return <article className="stat-card">{icon}<span>{label}</span><strong>{value}</strong></article>
 }
 
 function Section({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
