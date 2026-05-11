@@ -30,7 +30,7 @@ import {
 } from 'lucide-react'
 import './App.css'
 
-type View = 'dashboard' | 'customerInsights' | 'customerDetail' | 'library' | 'collaterals'
+type View = 'dashboard' | 'customerInsights' | 'customerDetail' | 'library' | 'collateral'
 type CustomerSubView = 'insights' | 'proofs'
 type CustomerStatus = 'Active Deal' | 'Onboarding' | 'Live' | 'Expanding' | 'At Risk' | 'Closed' | 'Closed Lost'
 type Approval = 'Internal Only' | 'Customer Approved' | 'Public'
@@ -143,6 +143,7 @@ type Collateral = {
   type: string
   status: Approval
   summary: string
+  servedCustomer?: string
   goal?: string
   focus?: string
   referenceProof?: string
@@ -164,8 +165,9 @@ type CollateralRow = {
 }
 
 type CollateralDraft = {
-  goal: string
-  focus: string
+  audience: string
+  proof: string
+  format: string
 }
 
 type Customer = {
@@ -228,8 +230,9 @@ const defaultUploadDraft: UploadDraft = {
   note: '',
 }
 const defaultCollateralDraft: CollateralDraft = {
-  goal: '',
-  focus: '',
+  audience: '',
+  proof: '',
+  format: '',
 }
 
 const initialCustomers: Customer[] = [
@@ -805,7 +808,7 @@ const initialCustomers: Customer[] = [
     objection: 'Why trust a younger vendor for critical infrastructure?',
     journeySummary: 'Northbeam AI is a late-stage active deal in AI infrastructure. They need proof that a younger vendor can be trusted for critical systems, especially against a large cloud incumbent. The current goal is to use reliability and incumbent-displacement stories to get the deal through negotiation.',
     interactionCount: 27,
-    proofCount: 3,
+    proofCount: 6,
     interactions: [
       {
         type: 'Meeting',
@@ -815,8 +818,100 @@ const initialCustomers: Customer[] = [
         proofDetected: true,
       },
     ],
-    proof: [],
-    collateral: [],
+    proof: [
+      {
+        id: 'northbeam-security-1',
+        claim: 'Dev Patel approved Dalil\'s source-traceability workflow as a viable security path for sharing customer proof.',
+        sourceCustomer: 'Northbeam AI',
+        metric: 'Every proof asset shows source record and approval status',
+        quote: 'Seeing the source link and approval status next to each proof point gives us a way to use this without creating a security exception.',
+        useCase: 'Security-sensitive proof activation',
+        outcomeType: 'Risk reduction',
+        bestFor: 'Security and data leaders evaluating a younger vendor',
+        approval: 'Internal Only',
+        tags: ['security', 'source traceability', 'approval workflow'],
+        industries: ['AI Infrastructure', 'Data platforms'],
+        companySizes: ['200-500 employees'],
+        personas: ['Head of Data', 'Security Lead', 'Founder'],
+        dealStages: ['Security Review', 'Negotiation'],
+        confidence: 0.86,
+        dateCaptured: 'May 11, 2026',
+        sourceInteraction: 'Email from Dev Patel, Head of Data',
+        usageCount: 2,
+        winRate: 0.64,
+        formats: ['Security proof card', 'Case study draft'],
+        status: 'Active',
+        counterObjections: ['Vendor trust', 'Sensitive customer data', 'Security review'],
+      },
+      {
+        id: 'northbeam-reliability-1',
+        claim: 'Rachel Kim said Dalil shortened pre-call proof prep by turning scattered customer evidence into reusable deal collateral.',
+        sourceCustomer: 'Northbeam AI',
+        metric: 'Email, CRM, calendar, and meeting notes consolidated into one customer profile',
+        quote: 'This is the customer evidence we need ready before enterprise calls instead of rebuilding it every time.',
+        useCase: 'Critical workflow reliability',
+        outcomeType: 'Operational confidence',
+        bestFor: 'Prospects comparing Dalil against larger incumbent platforms',
+        approval: 'Internal Only',
+        tags: ['reliability', 'incumbent displacement', 'data control'],
+        industries: ['AI Infrastructure'],
+        companySizes: ['200-500 employees'],
+        personas: ['Head of Data', 'VP Marketing'],
+        dealStages: ['Negotiation'],
+        confidence: 0.81,
+        dateCaptured: 'May 11, 2026',
+        sourceInteraction: 'CRM security-review note',
+        usageCount: 1,
+        winRate: 0.59,
+        formats: ['Sales one-pager', 'Executive summary'],
+        status: 'Active',
+        counterObjections: ['Larger incumbent trust', 'Critical infrastructure risk'],
+      },
+      {
+        id: 'northbeam-incumbent-1',
+        claim: 'Northbeam\'s team aligned around Dalil because sensitive proof stays controlled instead of being copied across sales docs.',
+        sourceCustomer: 'Northbeam AI',
+        metric: '2 senior stakeholders aligned on controlled proof workflow',
+        quote: 'The value is that the evidence stays in one controlled place, not copied across slides and messages without context.',
+        useCase: 'Incumbent displacement',
+        outcomeType: 'Executive alignment',
+        bestFor: 'Late-stage deals where the buyer is comparing Dalil with a larger cloud vendor',
+        approval: 'Internal Only',
+        tags: ['incumbent displacement', 'executive alignment', 'sales proof'],
+        industries: ['AI Infrastructure', 'Cloud infrastructure'],
+        companySizes: ['200-500 employees'],
+        personas: ['Founder', 'Head of Data', 'VP Marketing'],
+        dealStages: ['Negotiation'],
+        confidence: 0.74,
+        dateCaptured: 'May 10, 2026',
+        sourceInteraction: 'Negotiation call with Rachel Kim',
+        usageCount: 1,
+        winRate: 0.57,
+        formats: ['Battlecard', 'Case study draft'],
+        status: 'Active',
+        counterObjections: ['Why not use the incumbent?', 'Vendor maturity'],
+      },
+    ],
+    collateral: [
+      {
+        title: 'Northpoint AI security case study',
+        type: 'Case study draft',
+        status: 'Internal Only',
+        summary: 'Draft case study for Dev Patel showing how Dalil keeps customer proof source-traceable, approval-aware, and controlled for security-sensitive teams.',
+      },
+      {
+        title: 'Northbeam incumbent trust one-pager',
+        type: 'One-pager',
+        status: 'Internal Only',
+        summary: 'Sales one-pager positioning Dalil as a focused proof layer for teams comparing against broad incumbent platforms.',
+      },
+      {
+        title: 'Security review follow-up snippet',
+        type: 'Sales snippet',
+        status: 'Internal Only',
+        summary: 'Short follow-up language for Head of Data and security stakeholders concerned about sensitive customer data handling.',
+      },
+    ],
   },
 ]
 
@@ -920,7 +1015,14 @@ function draftToProof(draft: ProofDraft): ProofPoint {
   }
 }
 
-type ChatMessage = { role: 'agent' | 'user'; text: string }
+type ChatMessage = {
+  role: 'agent' | 'user'
+  text: string
+  attachment?: {
+    label: string
+    href: string
+  }
+}
 
 const chatStarters: Record<string, string> = {
   'Generate website proof block': "Got it — let's draft a proof block for the website. Which segment should I anchor it to: Series A-B operational SaaS, lean post-sales teams, or incumbent displacement?",
@@ -1010,7 +1112,7 @@ function App() {
   const [collateralAgentInput, setCollateralAgentInput] = useState('')
   const [collateralAgentMessages, setCollateralAgentMessages] = useState<ChatMessage[]>([])
   const [collateralAgentThinking, setCollateralAgentThinking] = useState(false)
-  const [customGeneralCollaterals, setCustomGeneralCollaterals] = useState<Collateral[]>([])
+  const [customGeneralCollateral, setCustomGeneralCollateral] = useState<Collateral[]>([])
   const [timelineView, setTimelineView] = useState<'condensed' | 'comprehensive'>('condensed')
   const [dataTab, setDataTab] = useState<DataTab>('Emails')
   const [selectedDataPoint, setSelectedDataPoint] = useState<CustomerDataPoint | null>(null)
@@ -1054,17 +1156,17 @@ function App() {
   const selected = selectedId ? customers.find((customer) => customer.id === selectedId) ?? null : null
   const selectedInteractions = selected ? buildInteractionHistory(selected) : []
   const selectedTimelineItems = timelineView === 'condensed' ? keyInteractions(selectedInteractions) : selectedInteractions
-  const selectedDataPoints = selected ? [...(uploadedDataPoints[selected.id] ?? []), ...buildCustomerDataPoints(selected)] : []
-  const selectedDataItems = selectedDataPoints.filter((item) => item.type === dataTab)
-  const selectedDataRows = chunkItems(selectedDataItems, 2)
+  const selectedDataPoints = selected
+    ? [...(uploadedDataPoints[selected.id] ?? []), ...buildCustomerDataPoints(selected)].filter((item) => !item.title.startsWith('New email from ') && !(item.type === 'Emails' && item.source === 'Gmail'))
+    : []
   const selectedDataSources = selected ? [...buildDataSources(selected), ...(configuredSourceAdds[selected.id] ?? [])].filter((source) => !(hiddenConfiguredSources[selected.id] ?? []).includes(source.name)) : []
   const selectedUpcomingItems = selected ? [...(customUpcomingItems[selected.id] ?? []), ...buildUpcomingItems(selected)] : []
   const selectedProofAssets = selected ? buildProofAssets(selected) : []
   const libraryProofAssets = customers.flatMap(buildProofAssets)
   const visibleLibraryProofAssets = libraryProofFilter === 'All' ? libraryProofAssets : libraryProofAssets.filter((asset) => asset.type === libraryProofFilter)
-  const libraryGeneralCollaterals = [...customGeneralCollaterals, ...buildGeneralCollaterals(customers)]
+  const libraryGeneralCollateral = [...customGeneralCollateral, ...buildGeneralCollateral(customers)]
   const libraryProofGroups = buildLibraryProofGroups(libraryProofAssets, customers)
-  const collateralRows = buildCollateralRows(customers, libraryGeneralCollaterals)
+  const collateralRows = buildCollateralRows(customers, libraryGeneralCollateral)
   const collateralFilterOptions = buildCollateralFilterOptions(collateralRows)
   const visibleCollateralRows = collateralRows.filter((row) =>
     (collateralCustomerFilter === 'All' || row.servedCustomer === collateralCustomerFilter) &&
@@ -1523,17 +1625,14 @@ function App() {
       setGeneralAgentThinking(false)
       setGeneralAgentMessages((current) => [
         ...current,
-        {
-          role: 'agent',
-          text: buildGeneralAgentReply(turn, text, {
-            customers: customers.length,
-            interactions: stats.interactions,
-            proof: stats.proof,
-            activeDeals: activeDeals.length,
-            topSegment,
-            strongestCustomer: strongestProof?.name ?? 'the strongest closed customer',
-          }),
-        },
+        buildGeneralAgentReply(turn, text, {
+          customers: customers.length,
+          interactions: stats.interactions,
+          proof: stats.proof,
+          activeDeals: activeDeals.length,
+          topSegment,
+          strongestCustomer: strongestProof?.name ?? 'the strongest closed customer',
+        }),
       ])
     }, 1100 + turn * 250)
   }
@@ -1607,8 +1706,8 @@ function App() {
     window.setTimeout(() => {
       const created = turn > 0 || /create|generate|draft|case|one-pager|website|battlecard/i.test(text)
       if (created) {
-        const newCollateral = buildAgentCollateral(text, customers, customGeneralCollaterals.length)
-        setCustomGeneralCollaterals((current) => [newCollateral, ...current])
+        const newCollateral = buildAgentCollateral(text, customers, customGeneralCollateral.length)
+        setCustomGeneralCollateral((current) => [newCollateral, ...current])
       }
       setCollateralAgentMessages((current) => [
         ...current,
@@ -1782,9 +1881,9 @@ function App() {
                 proof: [
                   makeDemoProof(customer, {
                     id: `email-${customer.id}-${Date.now()}`,
-                    claim: `${customer.name} has a fresh proof request tied to ${customer.objection.toLowerCase()}.`,
-                    metric: '1 relevant thread captured',
-                    quote: 'Can you send a customer example that shows this will not slow the team down?',
+                    claim: `${customer.name} has a fresh proof request that can be answered with source-linked customer evidence.`,
+                    metric: 'New stakeholder email matched to CRM context and approval status',
+                    quote: 'If the example includes the original source and approval status, I can use it with Dev before the retention call.',
                     sourceInteraction: `New email from ${contact}`,
                     bestFor: `follow-up emails about ${customer.objection.toLowerCase()}`,
                   }),
@@ -1835,23 +1934,24 @@ function App() {
   function generateCustomerCollateral(event?: React.FormEvent) {
     event?.preventDefault()
     if (!selected || collateralGenerating) return
-    const goal = collateralDraft.goal.trim() || 'Help the sales team build trust with a prospect using customer proof.'
-    const focus = collateralDraft.focus.trim() || selected.objection || 'implementation confidence'
+    const audience = collateralDraft.audience.trim() || selected.contacts[0] || 'Sales prospect'
+    const proof = collateralDraft.proof.trim() || selected.objection || 'Dalil can turn customer proof into credible sales collateral.'
+    const format = collateralDraft.format.trim() || 'Case study draft'
     setCollateralGenerating(true)
     window.setTimeout(() => {
       const referenceCustomer = customers.find((customer) => customer.id !== selected.id && customer.proof.length > 0)
       const newCollateral: Collateral = {
-        title: `${selected.name} ${focus} case study`,
-        type: 'Case study draft',
+        title: `${selected.name} ${format}`,
+        type: format,
         status: 'Internal Only',
-        summary: `Goal: ${goal} Focus: ${focus}. Drafted from ${selected.name}'s proof profile and strengthened with similar proof from ${referenceCustomer?.name ?? 'previous customers'} around ${selected.objection.toLowerCase()}.`,
-        goal,
-        focus,
+        summary: `Audience: ${audience}. Proof: ${proof}. Drafted from ${selected.name}'s proof profile and strengthened with similar proof from ${referenceCustomer?.name ?? 'previous customers'} around ${selected.objection.toLowerCase()}.`,
+        goal: `Create ${format} for ${audience}`,
+        focus: proof,
         referenceProof: referenceCustomer ? `${referenceCustomer.name}: ${referenceCustomer.proof[0]?.metric ?? 'relevant proof point'}` : 'Previous customer proof library',
-        communicates: inferCommunication(`${focus} ${selected.objection}`, selected),
-        metric: inferMetric(`${focus} ${selected.proof[0]?.metric ?? ''}`, inferCommunication(`${focus} ${selected.objection}`, selected)),
-        audience: 'Sales',
-        channel: 'Sales deck',
+        communicates: inferCommunication(`${proof} ${selected.objection}`, selected),
+        metric: inferMetric(`${proof} ${selected.proof[0]?.metric ?? ''}`, inferCommunication(`${proof} ${selected.objection}`, selected)),
+        audience,
+        channel: inferChannel(format, format),
       }
       setCustomers((current) =>
         current.map((customer) =>
@@ -1926,14 +2026,14 @@ function App() {
             </div>
           )}
           <NavButton active={view === 'library'} icon={<Library size={18} />} label="Proof Library" onClick={() => setView('library')} />
-          <NavButton active={view === 'collaterals'} icon={<FileStack size={18} />} label="Collaterals" onClick={() => setView('collaterals')} />
+          <NavButton active={view === 'collateral'} icon={<FileStack size={18} />} label="Collateral" onClick={() => setView('collateral')} />
         </nav>
       </aside>
 
       <section className="workspace">
         <header className="topbar">
           <div>
-            <h1 className={view === 'dashboard' ? 'dashboard-title' : ''}>{view === 'dashboard' ? 'Dashboard' : view === 'customerInsights' ? 'Company Health' : view === 'customerDetail' ? selected?.name ?? 'Customer' : view === 'collaterals' ? 'Collaterals' : 'Company Proof Memory'}</h1>
+            <h1 className={view === 'dashboard' ? 'dashboard-title' : ''}>{view === 'dashboard' ? 'Dashboard' : view === 'customerInsights' ? 'Company Health' : view === 'customerDetail' ? selected?.name ?? 'Customer' : view === 'collateral' ? 'Collateral' : 'Company Proof Memory'}</h1>
           </div>
           <div className="topbar-actions">
             {view !== 'dashboard' && <button className="search-button"><Search size={17} /> Search proof</button>}
@@ -2106,6 +2206,12 @@ function App() {
                         {generalAgentMessages.map((message, index) => (
                           <div className={`dashboard-agent-msg ${message.role}`} key={index}>
                             <p>{message.text}</p>
+                            {message.attachment && (
+                              <a className="chat-attachment" href={message.attachment.href} target="_blank" rel="noreferrer">
+                                <FileText size={15} />
+                                {message.attachment.label}
+                              </a>
+                            )}
                           </div>
                         ))}
                         {generalAgentThinking && <AgentThinking />}
@@ -2285,7 +2391,7 @@ function App() {
               </button>
               <div className="customer-tabs" aria-label="Customer sections">
                 <button className={customerSubView === 'insights' ? 'active' : ''} onClick={() => setCustomerSubView('insights')}>Customer Insights</button>
-                <button className={customerSubView === 'proofs' ? 'active' : ''} onClick={() => setCustomerSubView('proofs')}>Proofs & Collaterals</button>
+                <button className={customerSubView === 'proofs' ? 'active' : ''} onClick={() => setCustomerSubView('proofs')}>Proofs & Collateral</button>
               </div>
               <div className="main-column">
                 {customerSubView === 'insights' ? (
@@ -2331,7 +2437,7 @@ function App() {
                     </Section>
 
                     <Section
-                  title="Data Sources"
+                  title="Integrations"
                   action={
                     <div className="inline-actions">
                       <button className="secondary" onClick={simulateIncomingEmail} disabled={incomingEmailParsing}>
@@ -2365,6 +2471,17 @@ function App() {
                     <span>Integrations with Apollo and Dripify for outbound sequence context, prospect activity, and automated capture into the right customer profile.</span>
                   </div>
                     </Section>
+
+                    <Section title="Data" action={<button className="secondary" onClick={() => setShowCustomerUpload(true)}><Upload size={16} /> Upload</button>}>
+                  <div className="data-tabs" aria-label="Customer data types">
+                    {dataTabs.map((tab) => (
+                      <button className={dataTab === tab ? 'active' : ''} key={tab} onClick={() => setDataTab(tab)}>
+                        {tab}
+                        <span>{selectedDataPoints.filter((item) => item.type === tab).length}</span>
+                      </button>
+                    ))}
+                  </div>
+                    </Section>
                   </>
                 ) : (
                   <div className="customer-proof-page">
@@ -2386,7 +2503,7 @@ function App() {
                     </Section>
 
                     <Section
-                      title="Collaterals"
+                      title="Collateral"
                       action={
                         <button className="secondary" onClick={openCollateralSetup} disabled={collateralGenerating}>
                           <Sparkles size={16} /> {collateralGenerating ? 'Generating...' : 'Generate collateral'}
@@ -2435,40 +2552,6 @@ function App() {
                           <p>{item.summary}</p>
                         </div>
                       </button>
-                    ))}
-                  </div>
-                </Section>
-
-                <Section title="Data" action={<button className="secondary" onClick={() => setShowCustomerUpload(true)}><Upload size={16} /> Upload</button>}>
-                  <div className="data-tabs" aria-label="Customer data types">
-                    {dataTabs.map((tab) => (
-                      <button className={dataTab === tab ? 'active' : ''} key={tab} onClick={() => setDataTab(tab)}>
-                        {tab}
-                        <span>{selectedDataPoints.filter((item) => item.type === tab).length}</span>
-                      </button>
-                    ))}
-                  </div>
-                  <div className="data-list">
-                    {selectedDataRows.length === 0 ? (
-                      <div className="empty-state">
-                        <Upload size={22} />
-                        <p>No {dataTab.toLowerCase()} have been added for this customer yet.</p>
-                      </div>
-                    ) : selectedDataRows.map((row, rowIndex) => (
-                      <div className="data-row" key={`${dataTab}-${rowIndex}`}>
-                        {row.map((item) => {
-                          const itemKey = `${selected.id}-${item.type}-${item.title}`
-                          return (
-                            <button className="data-point" key={itemKey} onClick={() => setSelectedDataPoint(item)}>
-                              <span className="data-point-head">
-                                <strong>{item.title}</strong>
-                                <em className={item.status === 'Proof detected' ? 'detected' : ''}>{item.status}</em>
-                              </span>
-                              <span className="data-point-meta">{item.date} · Source: {item.source}</span>
-                            </button>
-                          )
-                        })}
-                      </div>
                     ))}
                   </div>
                 </Section>
@@ -2573,10 +2656,10 @@ function App() {
             </div>
           )}
 
-          {view === 'collaterals' && (
-            <div className="collaterals-page">
+          {view === 'collateral' && (
+            <div className="collateral-page">
               <main className="main-column">
-                <Section title="All Collaterals" action={<span className="table-count">{visibleCollateralRows.length} shown</span>}>
+                <Section title="All Collateral" action={<span className="table-count">{visibleCollateralRows.length} shown</span>}>
                   <div className="collateral-filter-grid">
                     <label>
                       <span>Customer served</span>
@@ -3009,29 +3092,38 @@ function App() {
             </header>
             <form className="modal-form" onSubmit={generateCustomerCollateral}>
               <div className="form-grid">
-                <Field label="What are we trying to achieve?" wide required hint="Example: help a late-stage prospect trust that implementation will not create extra work.">
+                <Field label="Who is this collateral for?" wide required hint="Example: Dev Patel, Head of Data at Northpoint AI.">
                   <textarea
-                    rows={3}
+                    rows={2}
                     required
-                    value={collateralDraft.goal}
-                    onChange={(event) => setCollateralDraft({ ...collateralDraft, goal: event.target.value })}
-                    placeholder="Create a customer story we can use in a sales follow-up to build confidence before the next meeting."
+                    value={collateralDraft.audience}
+                    onChange={(event) => setCollateralDraft({ ...collateralDraft, audience: event.target.value })}
+                    placeholder={selected.contacts[0] ?? 'Dev Patel, Head of Data at Northpoint AI'}
                   />
                 </Field>
-                <Field label="What should the collateral focus on?" wide required hint="Example: implementation bandwidth, incumbent displacement, fast proof retrieval, ROI.">
+                <Field label="What do you want to prove?" wide required hint="Example: Dalil can securely handle sensitive customer proof.">
                   <textarea
                     rows={3}
                     required
-                    value={collateralDraft.focus}
-                    onChange={(event) => setCollateralDraft({ ...collateralDraft, focus: event.target.value })}
-                    placeholder={`Focus on ${selected.objection.toLowerCase()} and show how a lean team can use proof without adding process overhead.`}
+                    value={collateralDraft.proof}
+                    onChange={(event) => setCollateralDraft({ ...collateralDraft, proof: event.target.value })}
+                    placeholder={`Dalil can address ${selected.objection.toLowerCase()} with proof from similar customers.`}
+                  />
+                </Field>
+                <Field label="What format should Dalil create?" wide required hint="Example: case study, one-pager, follow-up email, battlecard.">
+                  <textarea
+                    rows={2}
+                    required
+                    value={collateralDraft.format}
+                    onChange={(event) => setCollateralDraft({ ...collateralDraft, format: event.target.value })}
+                    placeholder="Case study"
                   />
                 </Field>
                 <div className="upload-parser-note wide-field">
                   <Sparkles size={18} />
                   <div>
                     <strong>Generation context</strong>
-                    <p>Dalil will use this customer’s extracted proof, similar proof from previous customers, and your goal/focus to draft the collateral.</p>
+                    <p>Dalil will use this customer’s extracted proof and similar proof from previous customers to draft the collateral for the audience, claim, and format you choose.</p>
                   </div>
                 </div>
               </div>
@@ -3464,14 +3556,6 @@ function keyInteractions(interactions: Interaction[]) {
   return (keyItems.length ? keyItems : interactions).slice(0, 8)
 }
 
-function chunkItems<T>(items: T[], size: number) {
-  const chunks: T[][] = []
-  for (let index = 0; index < items.length; index += size) {
-    chunks.push(items.slice(index, index + size))
-  }
-  return chunks
-}
-
 function inferDataTypeFromFilename(fileName: string): DataTab {
   const normalized = fileName.toLowerCase()
   if (normalized.includes('email') || normalized.endsWith('.eml')) return 'Emails'
@@ -3502,18 +3586,25 @@ function buildGeneralAgentReply(
   turn: number,
   input: string,
   context: { customers: number; interactions: number; proof: number; activeDeals: number; topSegment: string; strongestCustomer: string },
-) {
+): ChatMessage {
   if (turn === 1 && /^(yes|yep|yeah|please|sure|generate|do it)\b/i.test(input.trim())) {
-    return 'generating the case study...'
+    return {
+      role: 'agent',
+      text: 'generating the case study...',
+      attachment: {
+        label: 'Northbeam AI security case study.pdf',
+        href: '/case-studies/northpoint-security-case-study.pdf',
+      },
+    }
   }
 
   const replies = [
-    `Northpoint's main concern is security. You have a 2 PM meeting today with Dev Patel, Head of Data. To assure them of our system's security, would you like me to generate a case study to send to him before the meeting?`,
+    `Northbeam's main concern is security. You have a 2 PM meeting today with Dev Patel, Head of Data. To assure them of our system's security, would you like me to generate a case study to send to him before the meeting?`,
     `Company-wide, Dalil is tracking ${context.customers} customer profiles, ${context.interactions} interactions, and ${context.proof} proof points. The strongest segment right now is ${context.topSegment}, with ${context.activeDeals} active deals that need proof support. I would package ${context.strongestCustomer} first, then use that proof in active conversations where the concern is implementation risk, incumbent trust, or ROI.`,
     `The biggest gap is activation. There is enough proof in the library, but the team needs to turn it into sharper deal support: one proof card for implementation bandwidth, one proof card for incumbent displacement, and one short metric-backed follow-up email template.`,
     `For the next demo step, I would open the most urgent active account, show the upcoming meeting, and ask the customer agent for a pre-meeting brief. That connects the company-wide proof memory to an actual sales moment.`,
   ]
-  return replies[turn % replies.length]
+  return { role: 'agent', text: replies[turn % replies.length] }
 }
 
 function buildCustomerAgentReply(
@@ -3557,11 +3648,11 @@ function buildAgentCollateral(input: string, customers: Customer[], index: numbe
   }
 }
 
-function buildCollateralRows(customers: Customer[], generalCollaterals: Collateral[]): CollateralRow[] {
+function buildCollateralRows(customers: Customer[], generalCollateral: Collateral[]): CollateralRow[] {
   const customerRows = customers.flatMap((customer) =>
     customer.collateral.map((asset, index) => normalizeCollateralRow(asset, customer, `${customer.id}-${index}`)),
   )
-  const generalRows = generalCollaterals.map((asset, index) => normalizeCollateralRow(asset, null, `general-${index}`))
+  const generalRows = generalCollateral.map((asset, index) => normalizeCollateralRow(asset, null, `general-${index}`))
   return [...customerRows, ...generalRows]
 }
 
@@ -3608,7 +3699,7 @@ function normalizeCollateralRow(asset: Collateral, customer: Customer | null, id
       channel: asset.channel ?? inferChannel(text, asset.type),
     },
     customer,
-    servedCustomer: customer?.name ?? 'None',
+    servedCustomer: customer?.name ?? asset.servedCustomer ?? 'Northpoint AI',
     communicates,
     metric: asset.metric ?? inferMetric(text, communicates),
     audience: asset.audience ?? inferAudience(text, asset.type),
@@ -4624,31 +4715,35 @@ function buildCollateralContext(customer: Customer, asset: Collateral) {
   ]
 }
 
-function buildGeneralCollaterals(customers: Customer[]): Collateral[] {
+function buildGeneralCollateral(customers: Customer[]): Collateral[] {
   const proofTotal = customers.reduce((sum, customer) => sum + customer.proofCount, 0)
   return [
     {
       title: 'Homepage proof block',
       type: 'Website copy',
       status: 'Internal Only',
+      servedCustomer: 'Northpoint AI',
       summary: `Company-wide proof section using ${proofTotal} proof points across customer outcomes, quotes, and metrics.`,
     },
     {
       title: 'LinkedIn customer proof post',
       type: 'Marketing post',
       status: 'Internal Only',
+      servedCustomer: 'BrightCart',
       summary: 'Founder-style post about turning scattered customer wins into sales-ready proof.',
     },
     {
       title: 'Investor traction snippet',
       type: 'Investor update',
       status: 'Internal Only',
+      servedCustomer: 'AtlasPay',
       summary: 'Short investor-facing proof summary covering customer outcomes, repeatability, and strongest segments.',
     },
     {
       title: 'Implementation objection battlecard',
       type: 'Sales enablement',
       status: 'Internal Only',
+      servedCustomer: 'SignalWorks',
       summary: 'Reusable talk tracks and proof assets for prospects worried about implementation bandwidth.',
     },
   ]
