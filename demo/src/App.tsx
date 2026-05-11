@@ -1062,7 +1062,6 @@ function App() {
   const selectedProofAssets = selected ? buildProofAssets(selected) : []
   const libraryProofAssets = customers.flatMap(buildProofAssets)
   const visibleLibraryProofAssets = libraryProofFilter === 'All' ? libraryProofAssets : libraryProofAssets.filter((asset) => asset.type === libraryProofFilter)
-  const libraryCustomerCollaterals = customers.flatMap((customer) => customer.collateral.map((asset) => ({ customer, asset })))
   const libraryGeneralCollaterals = [...customGeneralCollaterals, ...buildGeneralCollaterals(customers)]
   const libraryProofGroups = buildLibraryProofGroups(libraryProofAssets, customers)
   const collateralRows = buildCollateralRows(customers, libraryGeneralCollaterals)
@@ -1177,7 +1176,7 @@ function App() {
           tier: 'High',
           tag: 'Risk review',
           customer: customer.name,
-          title: `Triage ${customer.value} account before next touchpoint`,
+          title: `Decide if founder should join the next call`,
           detail: `Status "${customer.status}", stage "${customer.stage}", objection "${customer.objection}".`,
         })
       }
@@ -1379,6 +1378,34 @@ function App() {
     }),
     [urgencyActions],
   )
+  const dashboardMeetings = useMemo(
+    () => {
+      const slots = [
+        { date: 'May 12', time: '9:30 AM' },
+        { date: 'May 12', time: '2:00 PM' },
+        { date: 'May 13', time: '11:00 AM' },
+        { date: 'May 14', time: '3:30 PM' },
+      ]
+      const meetingRows = customers
+      .flatMap((customer) => [...(customUpcomingItems[customer.id] ?? []), ...buildUpcomingItems(customer)]
+        .filter((item) => item.type === 'Meeting')
+        .map((item) => ({ id: customer.id, customer: customer.name, title: item.title, due: item.due, source: item.source })))
+      const northbeamMeeting = meetingRows.find((meeting) => meeting.customer === 'Northbeam AI')
+      const withoutAcme = meetingRows.filter((meeting) => meeting.customer !== 'Acme Health')
+      const orderedMeetings = northbeamMeeting
+        ? [withoutAcme[0], northbeamMeeting, ...withoutAcme.filter((meeting) => meeting.id !== northbeamMeeting.id && meeting.id !== withoutAcme[0]?.id)].filter(Boolean)
+        : withoutAcme
+      return orderedMeetings
+      .slice(0, 4)
+      .map((meeting, index) => ({
+        ...meeting,
+        customer: meeting.customer === 'Northbeam AI' ? 'Northpoint AI - Dev Patel' : meeting.customer,
+        title: meeting.customer === 'Northbeam AI' && meeting.title === 'Negotiation prep' ? 'Retention Call' : meeting.title,
+        ...slots[index % slots.length],
+      }))
+    },
+    [customers, customUpcomingItems],
+  )
   const dashboardCustomers = dashboardStatus === 'All' ? customers : customers.filter((customer) => customer.status === dashboardStatus)
 
   const activeCount = customers.filter((customer) => ['Active Deal', 'At Risk'].includes(customer.status)).length
@@ -1498,7 +1525,7 @@ function App() {
         ...current,
         {
           role: 'agent',
-          text: buildGeneralAgentReply(turn, {
+          text: buildGeneralAgentReply(turn, text, {
             customers: customers.length,
             interactions: stats.interactions,
             proof: stats.proof,
@@ -1929,10 +1956,8 @@ function App() {
                 <section className="dashboard-section dashboard-section-primary">
                   <header className="dashboard-section-head">
                     <div>
-                      <span className="eyebrow">Curated by Dalil · just now</span>
-                      <h2>Next moves</h2>
+                      <h2>Priorities</h2>
                     </div>
-                    <span className="dashboard-section-meta">{urgencyActions.length} {urgencyActions.length === 1 ? 'signal' : 'signals'}</span>
                   </header>
                   {urgencyActions.length === 0 ? (
                     <div className="urgency-empty-state">
@@ -2028,7 +2053,28 @@ function App() {
                 </section>
               </section>
 
-              <aside className="dashboard-agent">
+              <aside className="dashboard-side">
+                <section className="dashboard-meeting-calendar" aria-label="Meeting calendar">
+                  <div className="dashboard-meeting-head">
+                    <strong>Meeting calendar</strong>
+                    <span>{dashboardMeetings.length}</span>
+                  </div>
+                  {dashboardMeetings.length === 0 ? (
+                    <p>No customer meetings detected.</p>
+                  ) : (
+                    <div className="dashboard-meeting-list">
+                      {dashboardMeetings.map((meeting) => (
+                        <button type="button" key={`${meeting.id}-${meeting.title}-${meeting.date}-${meeting.time}`} onClick={() => openCustomer(meeting.id)}>
+                          <span>{meeting.date} · {meeting.time}</span>
+                          <strong>{meeting.customer}</strong>
+                          <em>{meeting.title}</em>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </section>
+
+                <section className="dashboard-agent">
                   <div className="agent-topbar">
                     <button type="button" className={generalAgentView === 'current' ? 'active' : ''} onClick={() => setGeneralAgentView('current')}>
                       <strong>Current</strong>
@@ -2054,7 +2100,7 @@ function App() {
                         </div>
                       )
                     ) : generalAgentMessages.length === 0 ? (
-                      <p className="empty-chat">Ask Dalil about proof gaps, active deals, or what customer story to use next.</p>
+                      <p className="empty-chat">Ask Dalil to assist with priortizing and deal details.</p>
                     ) : (
                       <>
                         {generalAgentMessages.map((message, index) => (
@@ -2071,6 +2117,7 @@ function App() {
                     <input value={generalAgentInput} onChange={(event) => setGeneralAgentInput(event.target.value)} placeholder="Ask Dalil..." disabled={generalAgentThinking} />
                     <button type="submit" aria-label="Send message" disabled={generalAgentThinking || !generalAgentInput.trim()}><Send size={15} /></button>
                   </form>
+                </section>
               </aside>
             </div>
           )}
@@ -2260,6 +2307,30 @@ function App() {
                     </Section>
 
                     <Section
+                  title="Interactions Timeline"
+                  action={
+                    <div className="segmented-control" aria-label="Timeline view">
+                      <button className={timelineView === 'condensed' ? 'active' : ''} onClick={() => setTimelineView('condensed')}>Condensed</button>
+                      <button className={timelineView === 'comprehensive' ? 'active' : ''} onClick={() => setTimelineView('comprehensive')}>Comprehensive</button>
+                    </div>
+                  }
+                    >
+                  <div className={`timeline timeline-${timelineView}`}>
+                    {selectedTimelineItems.map((item) => (
+                      <article className="timeline-item" key={`${item.title}-${item.date}`}>
+                        <div className="timeline-icon">{iconFor(item.type)}</div>
+                        <div>
+                          <strong>{item.title}</strong>
+                          <span>{item.type} · {item.date}</span>
+                          <p>{item.summary}</p>
+                        </div>
+                        {item.proofDetected && <em>Potential proof detected</em>}
+                      </article>
+                    ))}
+                  </div>
+                    </Section>
+
+                    <Section
                   title="Data Sources"
                   action={
                     <div className="inline-actions">
@@ -2292,64 +2363,6 @@ function App() {
                   <div className="coming-soon-integrations">
                     <strong>Coming soon</strong>
                     <span>Integrations with Apollo and Dripify for outbound sequence context, prospect activity, and automated capture into the right customer profile.</span>
-                  </div>
-                    </Section>
-
-                    <Section
-                  title="Interactions Timeline"
-                  action={
-                    <div className="segmented-control" aria-label="Timeline view">
-                      <button className={timelineView === 'condensed' ? 'active' : ''} onClick={() => setTimelineView('condensed')}>Condensed</button>
-                      <button className={timelineView === 'comprehensive' ? 'active' : ''} onClick={() => setTimelineView('comprehensive')}>Comprehensive</button>
-                    </div>
-                  }
-                    >
-                  <div className={`timeline timeline-${timelineView}`}>
-                    {selectedTimelineItems.map((item) => (
-                      <article className="timeline-item" key={`${item.title}-${item.date}`}>
-                        <div className="timeline-icon">{iconFor(item.type)}</div>
-                        <div>
-                          <strong>{item.title}</strong>
-                          <span>{item.type} · {item.date}</span>
-                          <p>{item.summary}</p>
-                        </div>
-                        {item.proofDetected && <em>Potential proof detected</em>}
-                      </article>
-                    ))}
-                  </div>
-                    </Section>
-
-                    <Section title="Data" action={<button className="secondary" onClick={() => setShowCustomerUpload(true)}><Upload size={16} /> Upload</button>}>
-                  <div className="data-tabs" aria-label="Customer data types">
-                    {dataTabs.map((tab) => (
-                      <button className={dataTab === tab ? 'active' : ''} key={tab} onClick={() => setDataTab(tab)}>
-                        {tab}
-                        <span>{selectedDataPoints.filter((item) => item.type === tab).length}</span>
-                      </button>
-                    ))}
-                  </div>
-                  <div className="data-list">
-                    {selectedDataRows.length === 0 ? (
-                      <div className="empty-state">
-                        <Upload size={22} />
-                        <p>No {dataTab.toLowerCase()} have been added for this customer yet.</p>
-                      </div>
-                    ) : selectedDataRows.map((row, rowIndex) => (
-                      <div className="data-row" key={`${dataTab}-${rowIndex}`}>
-                        {row.map((item) => {
-                          const itemKey = `${selected.id}-${item.type}-${item.title}`
-                          return (
-                            <button className="data-point" key={itemKey} onClick={() => setSelectedDataPoint(item)}>
-                              <span className="data-point-head">
-                                <strong>{item.title}</strong>
-                                <em className={item.status === 'Proof detected' ? 'detected' : ''}>{item.status}</em>
-                              </span>
-                              <span className="data-point-meta">{item.date} · Source: {item.source}</span>
-                            </button>
-                          )
-                        })}
-                      </div>
-                    ))}
                   </div>
                     </Section>
                   </>
@@ -2422,6 +2435,40 @@ function App() {
                           <p>{item.summary}</p>
                         </div>
                       </button>
+                    ))}
+                  </div>
+                </Section>
+
+                <Section title="Data" action={<button className="secondary" onClick={() => setShowCustomerUpload(true)}><Upload size={16} /> Upload</button>}>
+                  <div className="data-tabs" aria-label="Customer data types">
+                    {dataTabs.map((tab) => (
+                      <button className={dataTab === tab ? 'active' : ''} key={tab} onClick={() => setDataTab(tab)}>
+                        {tab}
+                        <span>{selectedDataPoints.filter((item) => item.type === tab).length}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="data-list">
+                    {selectedDataRows.length === 0 ? (
+                      <div className="empty-state">
+                        <Upload size={22} />
+                        <p>No {dataTab.toLowerCase()} have been added for this customer yet.</p>
+                      </div>
+                    ) : selectedDataRows.map((row, rowIndex) => (
+                      <div className="data-row" key={`${dataTab}-${rowIndex}`}>
+                        {row.map((item) => {
+                          const itemKey = `${selected.id}-${item.type}-${item.title}`
+                          return (
+                            <button className="data-point" key={itemKey} onClick={() => setSelectedDataPoint(item)}>
+                              <span className="data-point-head">
+                                <strong>{item.title}</strong>
+                                <em className={item.status === 'Proof detected' ? 'detected' : ''}>{item.status}</em>
+                              </span>
+                              <span className="data-point-meta">{item.date} · Source: {item.source}</span>
+                            </button>
+                          )
+                        })}
+                      </div>
                     ))}
                   </div>
                 </Section>
@@ -2511,31 +2558,9 @@ function App() {
                     </div>
                   </Section>
 
-                  <Section title="Customer Collaterals">
-                    <div className="library-collateral-grid">
-                      {libraryCustomerCollaterals.map(({ customer, asset }) => (
-                        <button className="collateral-card" key={`${customer.id}-${asset.title}`} onClick={() => { setSelectedCollateral(asset); setSelectedCollateralCustomer(customer) }}>
-                          <div><strong>{asset.title}</strong><span>{customer.name} · {asset.type} · {asset.status}</span></div>
-                          <p>{asset.summary}</p>
-                        </button>
-                      ))}
-                    </div>
-                  </Section>
                 </main>
 
                 <aside className="right-column">
-                  <Section title="General Collaterals" action={<FileText size={18} />}>
-                    <div className="library-general-grid">
-                      {libraryGeneralCollaterals.map((asset) => (
-                        <button className="general-collateral-card" key={asset.title} onClick={() => openChat(`Generate ${asset.title}`)}>
-                          <strong>{asset.title}</strong>
-                          <span>{asset.type} · {asset.status}</span>
-                          <p>{asset.summary}</p>
-                        </button>
-                      ))}
-                    </div>
-                  </Section>
-
                   <Section title="What Dalil is seeing" action={<Sparkles size={18} />}>
                     <div className="insight-list">
                       <Insight title="What you are good at" detail="Implementation speed, lean-team rollout, and turning founder-led proof into repeatable sales assets." />
@@ -3475,9 +3500,15 @@ function sentenceCase(value: string) {
 
 function buildGeneralAgentReply(
   turn: number,
+  input: string,
   context: { customers: number; interactions: number; proof: number; activeDeals: number; topSegment: string; strongestCustomer: string },
 ) {
+  if (turn === 1 && /^(yes|yep|yeah|please|sure|generate|do it)\b/i.test(input.trim())) {
+    return 'generating the case study...'
+  }
+
   const replies = [
+    `Northpoint's main concern is security. You have a 2 PM meeting today with Dev Patel, Head of Data. To assure them of our system's security, would you like me to generate a case study to send to him before the meeting?`,
     `Company-wide, Dalil is tracking ${context.customers} customer profiles, ${context.interactions} interactions, and ${context.proof} proof points. The strongest segment right now is ${context.topSegment}, with ${context.activeDeals} active deals that need proof support. I would package ${context.strongestCustomer} first, then use that proof in active conversations where the concern is implementation risk, incumbent trust, or ROI.`,
     `The biggest gap is activation. There is enough proof in the library, but the team needs to turn it into sharper deal support: one proof card for implementation bandwidth, one proof card for incumbent displacement, and one short metric-backed follow-up email template.`,
     `For the next demo step, I would open the most urgent active account, show the upcoming meeting, and ask the customer agent for a pre-meeting brief. That connects the company-wide proof memory to an actual sales moment.`,

@@ -583,7 +583,7 @@ h3 {
 .dashboard-section-secondary .summary-strip,
 .dashboard-section-secondary .status-filters,
 .dashboard-section-secondary .customer-grid {
-  /* gentle deemphasis so the eye lands on Next moves first */
+  /* gentle deemphasis so the eye lands on Priorities first */
 }
 
 .dashboard-section-secondary .stat-card span,
@@ -780,15 +780,25 @@ h3 {
   color: var(--urgency-low-text);
 }
 
-.dashboard-agent {
+.dashboard-side {
   position: sticky;
   top: 0;
-  border: 0;
   border-left: 1px solid var(--border);
-  border-radius: 0;
   background: var(--panel);
   height: calc(100vh - 65px);
   min-height: calc(100vh - 65px);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  overflow: hidden;
+}
+
+.dashboard-agent {
+  min-height: 0;
+  flex: 1 1 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -840,6 +850,86 @@ h3 {
   color: var(--text-muted);
   font-size: 12px;
   font-weight: 400;
+}
+
+.dashboard-meeting-calendar {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel-alt);
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  flex: 0 0 auto;
+}
+
+.dashboard-meeting-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.dashboard-meeting-head strong {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.dashboard-meeting-head span {
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 800;
+  padding: 3px 8px;
+}
+
+.dashboard-meeting-calendar > p {
+  color: var(--text-muted);
+  font-size: 13px;
+  margin: 0;
+}
+
+.dashboard-meeting-list {
+  display: grid;
+  gap: 5px;
+}
+
+.dashboard-meeting-list button {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  color: inherit;
+  cursor: pointer;
+  display: grid;
+  gap: 2px;
+  padding: 6px 8px;
+  text-align: left;
+}
+
+.dashboard-meeting-list button:hover {
+  background: var(--row-hover);
+  border-color: var(--row-border-hover);
+}
+
+.dashboard-meeting-list span {
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.dashboard-meeting-list strong {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.dashboard-meeting-list em {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-style: normal;
 }
 
 .dashboard-agent-chat {
@@ -1229,6 +1319,62 @@ h3 {
 .customer-right-column {
   min-height: calc(100vh - 113px);
   grid-template-rows: auto minmax(360px, 1fr);
+}
+
+.customer-right-column > .panel:first-child {
+  padding: 14px;
+}
+
+.customer-right-column > .panel:first-child .section-head {
+  margin-bottom: 8px;
+}
+
+.customer-right-column > .panel:first-child .upcoming-list {
+  gap: 8px;
+  max-height: 280px;
+  overflow-y: auto;
+  padding-right: 3px;
+}
+
+.customer-right-column > .panel:first-child .upcoming-item {
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 8px;
+  padding: 9px;
+}
+
+.customer-right-column > .panel:first-child .upcoming-type {
+  width: 28px;
+  height: 28px;
+}
+
+.customer-right-column > .panel:first-child .upcoming-item p {
+  display: none;
+}
+
+.customer-right-column > .panel:nth-child(2) {
+  padding: 14px;
+}
+
+.customer-right-column > .panel:nth-child(2) .section-head {
+  margin-bottom: 8px;
+}
+
+.customer-right-column > .panel:nth-child(2) .data-tabs {
+  gap: 6px;
+}
+
+.customer-right-column > .panel:nth-child(2) .data-tabs button {
+  min-height: 28px;
+  padding: 0 8px;
+  font-size: 11px;
+}
+
+.customer-right-column > .panel:nth-child(2) .data-list {
+  max-height: 250px;
+}
+
+.customer-right-column > .panel:nth-child(2) .data-row {
+  grid-template-columns: 1fr;
 }
 
 .panel {
@@ -3270,6 +3416,7 @@ h3 {
   .library-layout,
   .collaterals-page,
   .dashboard-hero,
+  .dashboard-content,
   .summary-strip,
   .customer-grid,
   .dashboard-brief-grid,
@@ -3312,6 +3459,18 @@ h3 {
   .topbar {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .dashboard-side {
+    position: static;
+    height: auto;
+    min-height: 0;
+    border-left: 0;
+    border-top: 1px solid var(--border);
+  }
+
+  .dashboard-agent {
+    min-height: 420px;
   }
 
   .wide-info,
