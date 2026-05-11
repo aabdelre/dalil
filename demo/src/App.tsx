@@ -7,18 +7,25 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronsUpDown,
   Clock3,
+  FileStack,
   FileText,
-  Layers3,
+  HeartPulse,
+  LayoutDashboard,
+  Library,
   Mail,
   MessageSquareText,
   Mic2,
+  Moon,
   Plus,
   Search,
   Send,
   ShieldCheck,
   Sparkles,
+  Sun,
   Upload,
+  Users,
   X,
 } from 'lucide-react'
 import './App.css'
@@ -185,6 +192,27 @@ type Customer = {
   interactions: Interaction[]
   proof: ProofPoint[]
   collateral: Collateral[]
+}
+
+type UrgencyTier = 'High' | 'Medium' | 'Low'
+type ActionTag = 'Risk review' | 'Decision' | 'Meeting prep' | 'Follow-up' | 'Approval' | 'Proof gap' | 'Share win' | 'Touch base' | 'Re-engage'
+
+type UrgencyAction = {
+  id: string
+  tier: UrgencyTier
+  tag: ActionTag
+  customer: string
+  title: string
+  detail: string
+}
+
+const urgencyTiers: UrgencyTier[] = ['High', 'Medium', 'Low']
+
+const customerStatuses: CustomerStatus[] = ['Active Deal', 'Onboarding', 'Live', 'Expanding', 'At Risk', 'Closed', 'Closed Lost']
+
+const currentUser = {
+  initial: 'A',
+  login: 'ahmed@dalil',
 }
 
 const dataTabs: DataTab[] = ['Emails', 'Call transcripts', 'Meeting notes', 'Uploads', 'CRM notes', 'Manual notes']
@@ -930,8 +958,19 @@ const emptyDraft: CustomerDraft = {
   journeySummary: '',
 }
 
+type Theme = 'light' | 'dark'
+
+function readInitialTheme(): Theme {
+  if (typeof document !== 'undefined') {
+    const attr = document.documentElement.getAttribute('data-theme')
+    if (attr === 'light' || attr === 'dark') return attr
+  }
+  return 'dark'
+}
+
 function App() {
   const [view, setView] = useState<View>('dashboard')
+  const [theme, setTheme] = useState<Theme>(readInitialTheme)
   const [customers, setCustomers] = useState(initialCustomers)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [customerSubView, setCustomerSubView] = useState<CustomerSubView>('insights')
@@ -951,6 +990,7 @@ function App() {
   const [selectedCollateralCustomer, setSelectedCollateralCustomer] = useState<Customer | null>(null)
   const [editingProof, setEditingProof] = useState(false)
   const [proofDraft, setProofDraft] = useState<ProofDraft | null>(null)
+  const [dashboardStatus, setDashboardStatus] = useState<CustomerStatus | 'All'>('All')
   const [libraryProofFilter, setLibraryProofFilter] = useState<ProofAsset['type'] | 'All'>('All')
   const [collateralCustomerFilter, setCollateralCustomerFilter] = useState('All')
   const [collateralCommunicationFilter, setCollateralCommunicationFilter] = useState('All')
@@ -998,6 +1038,19 @@ function App() {
     }
   }, [chatMessages, chatThinking, chatComplete])
 
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    try {
+      localStorage.setItem('dalil-theme', theme)
+    } catch {
+      /* ignore storage errors */
+    }
+  }, [theme])
+
+  function toggleTheme() {
+    setTheme((current) => (current === 'dark' ? 'light' : 'dark'))
+  }
+
   const selected = selectedId ? customers.find((customer) => customer.id === selectedId) ?? null : null
   const selectedInteractions = selected ? buildInteractionHistory(selected) : []
   const selectedTimelineItems = timelineView === 'condensed' ? keyInteractions(selectedInteractions) : selectedInteractions
@@ -1023,9 +1076,15 @@ function App() {
   )
   const stats = useMemo(
     () => ({
+      customers: customers.length,
       interactions: customers.reduce((sum, customer) => sum + buildInteractionHistory(customer).length, 0),
       proof: 64,
+      assets: 21,
     }),
+    [customers],
+  )
+  const statusCounts = useMemo(
+    () => customerStatuses.map((status) => ({ status, count: customers.filter((customer) => customer.status === status).length })),
     [customers],
   )
   const overview = useMemo(() => {
@@ -1096,60 +1155,231 @@ function App() {
     return { activePipeline, closedArr, avgCycle, byStage, maxStage, byIndustry, byStatus, recentSignals, coverageGaps, objections, customersByIndustry, proofOpportunities, segmentInsights, activationPlays }
   }, [customers])
 
-  const ceoDashboardBrief = useMemo(() => {
-    const activeRevenueCustomers = customers.filter((customer) => ['At Risk', 'Active Deal'].includes(customer.status))
-    const attentionCustomer = activeRevenueCustomers.find((customer) => customer.status === 'At Risk') ?? activeRevenueCustomers[0]
-    const upcoming = customers.flatMap((customer) => buildUpcomingItems(customer).slice(0, 1).map((item) => ({ customer, item })))[0]
-    const proofGapCustomer = activeRevenueCustomers.slice().sort((a, b) => a.proofCount - b.proofCount)[0]
-    const readyStory = customers
-      .map((customer) => ({
-        customer,
-        asset: customer.collateral.find((item) => item.status !== 'Internal Only'),
-        proof: customer.proof.find((proof) => proof.approval !== 'Internal Only'),
-      }))
-      .find((item) => item.asset || item.proof)
-    const actionCustomer = activeRevenueCustomers.find((customer) => customer.stage === 'Security Review') ?? activeRevenueCustomers[0]
+  const urgencyActions = useMemo<UrgencyAction[]>(() => {
+    const taken = new Set<string>()
+    const out: UrgencyAction[] = []
+    const push = (action: UrgencyAction) => {
+      const key = `${action.id}:${action.tag}`
+      if (taken.has(key)) return
+      taken.add(key)
+      out.push(action)
+    }
+    const isStale = (lastActivity: string) => /weeks?|days/i.test(lastActivity)
+    const isWeeksOld = (lastActivity: string) => /weeks?/i.test(lastActivity)
+    const upcomingActive = (customer: Customer) =>
+      ['Closed', 'Closed Lost'].includes(customer.status) ? [] : buildUpcomingItems(customer)
 
-    return [
-      attentionCustomer && {
-        id: attentionCustomer.id,
-        category: 'Needs Attention',
-        title: `${attentionCustomer.name}: ${attentionCustomer.value} ${attentionCustomer.status.toLowerCase()}`,
-        evidence: `Grounded in CRM status "${attentionCustomer.status}", stage "${attentionCustomer.stage}", and objection "${attentionCustomer.objection}".`,
-        action: `Review whether ${attentionCustomer.name} needs founder involvement before the next touchpoint.`,
-      },
-      actionCustomer && {
-        id: actionCustomer.id,
-        category: 'CEO Actions',
-        title: `Decide how to handle ${actionCustomer.name}'s "${actionCustomer.objection.toLowerCase()}" concern`,
-        evidence: `Grounded in ${actionCustomer.name}'s ${actionCustomer.stage} stage, ${actionCustomer.value} value, and latest activity: ${actionCustomer.lastActivity}.`,
-        action: `Approve one customer story for this objection before the next sales follow-up.`,
-      },
-      upcoming && {
-        id: upcoming.customer.id,
-        category: 'Upcoming Meetings & Follow-ups',
-        title: `${upcoming.item.title} for ${upcoming.customer.name}`,
-        evidence: `Grounded in ${upcoming.item.source}; due ${upcoming.item.due}. ${upcoming.item.summary}`,
-        action: upcoming.item.recommendedAction,
-      },
-      readyStory && {
-        id: readyStory.customer.id,
-        category: 'Stories Ready for Approval',
-        title: readyStory.asset ? readyStory.asset.title : `${readyStory.customer.name}: ${readyStory.proof?.claim}`,
-        evidence: readyStory.asset
-          ? `Grounded in ${readyStory.customer.name}'s ${readyStory.asset.status.toLowerCase()} collateral draft.`
-          : `Grounded in ${readyStory.customer.name}'s ${readyStory.proof?.approval.toLowerCase()} proof point.`,
-        action: `Review for CEO approval before using it in public or high-value sales conversations.`,
-      },
-      proofGapCustomer && {
-        id: proofGapCustomer.id,
-        category: 'Revenue Proof Gaps',
-        title: `${proofGapCustomer.name}: ${proofGapCustomer.proofCount} proof assets attached to a ${proofGapCustomer.value} ${proofGapCustomer.status.toLowerCase()}`,
-        evidence: `Grounded in account stage "${proofGapCustomer.stage}" and objection "${proofGapCustomer.objection}".`,
-        action: `Check whether the existing proof is strong enough for this objection, or whether a similar customer story is needed.`,
-      },
-    ].filter((item): item is { id: string; category: string; title: string; evidence: string; action: string } => Boolean(item))
+    // High — at-risk customers
+    customers.forEach((customer) => {
+      if (customer.status === 'At Risk') {
+        push({
+          id: customer.id,
+          tier: 'High',
+          tag: 'Risk review',
+          customer: customer.name,
+          title: `Triage ${customer.value} account before next touchpoint`,
+          detail: `Status "${customer.status}", stage "${customer.stage}", objection "${customer.objection}".`,
+        })
+      }
+    })
+
+    // High — meetings due today
+    customers.forEach((customer) => {
+      upcomingActive(customer).forEach((item) => {
+        if (item.type === 'Meeting' && item.due.toLowerCase().includes('today')) {
+          push({
+            id: customer.id,
+            tier: 'High',
+            tag: 'Meeting prep',
+            customer: customer.name,
+            title: item.title,
+            detail: `${item.source} — ${item.due}. ${item.summary}`,
+          })
+        }
+      })
+    })
+
+    // High — proof gap on stuck Active Deal / At Risk deals
+    customers.forEach((customer) => {
+      if (!['Active Deal', 'At Risk'].includes(customer.status)) return
+      if (customer.proofCount >= 4) return
+      const stuck = customer.status === 'At Risk' || isStale(customer.lastActivity)
+      if (!stuck) return
+      push({
+        id: customer.id,
+        tier: 'High',
+        tag: 'Proof gap',
+        customer: customer.name,
+        title: `Close proof gap before ${customer.stage} stalls`,
+        detail: `${customer.proofCount} proof assets, objection "${customer.objection}".`,
+      })
+    })
+
+    // High — single hottest Active-Deal meeting tomorrow
+    let highMeetingsTaken = 0
+    customers.forEach((customer) => {
+      if (highMeetingsTaken >= 1) return
+      if (!['Active Deal', 'At Risk'].includes(customer.status)) return
+      upcomingActive(customer).forEach((item) => {
+        if (highMeetingsTaken >= 1) return
+        if (item.type !== 'Meeting') return
+        if (!item.due.toLowerCase().includes('tomorrow')) return
+        push({
+          id: customer.id,
+          tier: 'High',
+          tag: 'Meeting prep',
+          customer: customer.name,
+          title: item.title,
+          detail: `${item.source} — ${item.due}. ${item.summary}`,
+        })
+        highMeetingsTaken += 1
+      })
+    })
+
+    // Medium — decisions on Active Deal in Security Review / Negotiation
+    customers.forEach((customer) => {
+      if (customer.status !== 'Active Deal') return
+      if (customer.stage !== 'Security Review' && customer.stage !== 'Negotiation') return
+      push({
+        id: customer.id,
+        tier: 'Medium',
+        tag: 'Decision',
+        customer: customer.name,
+        title: `Approve a story for "${customer.objection.toLowerCase()}"`,
+        detail: `${customer.stage} stage, ${customer.value}. Latest activity: ${customer.lastActivity}.`,
+      })
+    })
+
+    // Medium — meeting prep tomorrow for non-deal accounts (cap 3)
+    let mediumMeetingsTaken = 0
+    customers.forEach((customer) => {
+      if (mediumMeetingsTaken >= 3) return
+      if (['Active Deal', 'At Risk'].includes(customer.status)) return
+      upcomingActive(customer).forEach((item) => {
+        if (mediumMeetingsTaken >= 3) return
+        if (item.type !== 'Meeting') return
+        if (!item.due.toLowerCase().includes('tomorrow')) return
+        push({
+          id: customer.id,
+          tier: 'Medium',
+          tag: 'Meeting prep',
+          customer: customer.name,
+          title: item.title,
+          detail: `${item.source} — ${item.due}.`,
+        })
+        mediumMeetingsTaken += 1
+      })
+    })
+
+    // Medium — stale collateral approvals (account quiet for days/weeks)
+    customers.forEach((customer) => {
+      if (!isStale(customer.lastActivity)) return
+      customer.collateral.forEach((asset) => {
+        if (asset.status === 'Internal Only') return
+        push({
+          id: customer.id,
+          tier: 'Medium',
+          tag: 'Approval',
+          customer: customer.name,
+          title: `Approve "${asset.title}" for external use`,
+          detail: `${asset.type} marked ${asset.status}. ${customer.name} last active ${customer.lastActivity}.`,
+        })
+      })
+    })
+
+    // Low — share-the-win on Public-approved assets
+    customers.forEach((customer) => {
+      const hasPublic =
+        customer.collateral.some((asset) => asset.status === 'Public') ||
+        customer.proof.some((proof) => proof.approval === 'Public')
+      if (!hasPublic) return
+      push({
+        id: customer.id,
+        tier: 'Low',
+        tag: 'Share win',
+        customer: customer.name,
+        title: `Distribute the ${customer.name} win internally`,
+        detail: `Has a Public-approved asset ready to share with the team.`,
+      })
+    })
+
+    // Low — fresh collateral approvals (no rush; account recently active)
+    customers.forEach((customer) => {
+      if (isStale(customer.lastActivity)) return
+      customer.collateral.forEach((asset) => {
+        if (asset.status === 'Internal Only') return
+        push({
+          id: customer.id,
+          tier: 'Low',
+          tag: 'Approval',
+          customer: customer.name,
+          title: `Approve "${asset.title}" for external use`,
+          detail: `${asset.type} marked ${asset.status}. Light approval — no rush.`,
+        })
+      })
+    })
+
+    // Low — touch-base prompts on Live / Expanding accounts (rotating titles)
+    const touchBasePrompts = [
+      (name: string) => `Quarterly check-in with ${name}`,
+      (name: string) => `Review latest usage data for ${name}`,
+      (name: string) => `Renewal pulse on ${name}`,
+      (name: string) => `Thank-you note: ${name} latest win`,
+    ]
+    let touchIdx = 0
+    customers.forEach((customer) => {
+      if (!['Live', 'Expanding'].includes(customer.status)) return
+      const title = touchBasePrompts[touchIdx % touchBasePrompts.length](customer.name)
+      touchIdx += 1
+      push({
+        id: customer.id,
+        tier: 'Low',
+        tag: 'Touch base',
+        customer: customer.name,
+        title,
+        detail: `${customer.status} account, ${customer.value}. Last activity: ${customer.lastActivity}.`,
+      })
+    })
+
+    // Low — onboarding nudge
+    customers.forEach((customer) => {
+      if (customer.status !== 'Onboarding') return
+      push({
+        id: customer.id,
+        tier: 'Low',
+        tag: 'Follow-up',
+        customer: customer.name,
+        title: `Send onboarding playbook to ${customer.name}`,
+        detail: `Onboarding account. Last activity: ${customer.lastActivity}.`,
+      })
+    })
+
+    // Low — re-engage stale threads (weeks since last touch, still active)
+    customers.forEach((customer) => {
+      if (customer.status === 'Closed Lost') return
+      if (!isWeeksOld(customer.lastActivity)) return
+      push({
+        id: customer.id,
+        tier: 'Low',
+        tag: 'Re-engage',
+        customer: customer.name,
+        title: `Re-engage ${customer.name} — last touch ${customer.lastActivity}`,
+        detail: `Status "${customer.status}". Send a check-in to restart the thread.`,
+      })
+    })
+
+    return out
   }, [customers])
+
+  const urgencyByTier = useMemo(
+    () => ({
+      High: urgencyActions.filter((action) => action.tier === 'High'),
+      Medium: urgencyActions.filter((action) => action.tier === 'Medium'),
+      Low: urgencyActions.filter((action) => action.tier === 'Low'),
+    }),
+    [urgencyActions],
+  )
+  const dashboardCustomers = dashboardStatus === 'All' ? customers : customers.filter((customer) => customer.status === dashboardStatus)
 
   const activeCount = customers.filter((customer) => ['Active Deal', 'At Risk'].includes(customer.status)).length
   const closedCount = customers.length - activeCount
@@ -1651,10 +1881,10 @@ function App() {
           </div>
         </div>
         <nav>
-          <NavButton active={view === 'dashboard'} icon={<Building2 size={18} />} label="Dashboard" onClick={() => setView('dashboard')} />
-          <NavButton active={view === 'customerInsights'} icon={<Layers3 size={18} />} label="Company Health" onClick={() => { setSelectedId(null); setView('customerInsights') }} />
+          <NavButton active={view === 'dashboard'} icon={<LayoutDashboard size={18} />} label="Dashboard" onClick={() => setView('dashboard')} />
+          <NavButton active={view === 'customerInsights'} icon={<HeartPulse size={18} />} label="Company Health" onClick={() => { setSelectedId(null); setView('customerInsights') }} />
           <button className={`sidebar-collapse ${view === 'customerDetail' ? 'active' : ''}`} onClick={() => setCustomerListOpen((open) => !open)}>
-            <Building2 size={18} />
+            <Users size={18} />
             <span className="nav-label">Customers</span>
             <span className="customer-count">{customers.length}</span>
             <ChevronDown className={customerListOpen ? 'open' : ''} size={14} />
@@ -1668,8 +1898,8 @@ function App() {
               ))}
             </div>
           )}
-          <NavButton active={view === 'library'} icon={<ShieldCheck size={18} />} label="Proof Library" onClick={() => setView('library')} />
-          <NavButton active={view === 'collaterals'} icon={<FileText size={18} />} label="Collaterals" onClick={() => setView('collaterals')} />
+          <NavButton active={view === 'library'} icon={<Library size={18} />} label="Proof Library" onClick={() => setView('library')} />
+          <NavButton active={view === 'collaterals'} icon={<FileStack size={18} />} label="Collaterals" onClick={() => setView('collaterals')} />
         </nav>
       </aside>
 
@@ -1680,7 +1910,15 @@ function App() {
           </div>
           <div className="topbar-actions">
             {view !== 'dashboard' && <button className="search-button"><Search size={17} /> Search proof</button>}
+            <button className="theme-toggle" onClick={toggleTheme} aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
+              {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
+            </button>
             <button className="primary" onClick={openNewCustomer}><Plus size={18} /> New customer</button>
+            <button type="button" className="topbar-user" aria-label={`Account menu for ${currentUser.login}`}>
+              <span className="topbar-user-avatar">{currentUser.initial}</span>
+              <strong className="topbar-user-login">{currentUser.login}</strong>
+              <ChevronsUpDown size={14} aria-hidden />
+            </button>
           </div>
         </header>
 
@@ -1688,18 +1926,106 @@ function App() {
           {view === 'dashboard' && (
             <div className="dashboard-content">
               <section className="dashboard-main">
-                <div className="dashboard-brief-grid">
-                  {ceoDashboardBrief.map((item) => (
-                    <section className="dashboard-brief-item" key={`${item.category}-${item.id}`}>
-                      <h2>{item.category}</h2>
-                      <button className="panel dashboard-brief-card" onClick={() => openCustomer(item.id)}>
-                        <strong>{item.title}</strong>
-                        <p>{item.evidence}</p>
-                        <em>{item.action}</em>
+                <section className="dashboard-section dashboard-section-primary">
+                  <header className="dashboard-section-head">
+                    <div>
+                      <span className="eyebrow">Curated by Dalil · just now</span>
+                      <h2>Next moves</h2>
+                    </div>
+                    <span className="dashboard-section-meta">{urgencyActions.length} {urgencyActions.length === 1 ? 'signal' : 'signals'}</span>
+                  </header>
+                  {urgencyActions.length === 0 ? (
+                    <div className="urgency-empty-state">
+                      <div className="urgency-empty-glyph" aria-hidden>د</div>
+                      <p className="urgency-empty-headline">You're clear.</p>
+                      <p className="urgency-empty-detail">Dalil will surface the next move when a customer signal lands.</p>
+                    </div>
+                  ) : (
+                    <div className="urgency-grid">
+                      {urgencyTiers.map((tier) => {
+                        const rows = urgencyByTier[tier]
+                        const visible = rows.slice(0, 4)
+                        const extra = rows.length - visible.length
+                        return (
+                          <section className={`urgency-card urgency-${tier.toLowerCase()}`} key={tier}>
+                            <header className="urgency-card-head">
+                              <h2>{tier}</h2>
+                              <span className="urgency-count">{rows.length}</span>
+                            </header>
+                            {rows.length === 0 ? (
+                              <p className="urgency-empty">Nothing here right now.</p>
+                            ) : (
+                              <ul className="urgency-list">
+                                {visible.map((row) => (
+                                  <li key={`${tier}-${row.id}-${row.tag}`}>
+                                    <button type="button" className="urgency-row" onClick={() => openCustomer(row.id)} title={row.detail}>
+                                      <span className="action-tag">{row.tag}</span>
+                                      <span className="urgency-body">
+                                        <strong>{row.customer}</strong>
+                                        <span className="urgency-action-title">{row.title}</span>
+                                      </span>
+                                    </button>
+                                  </li>
+                                ))}
+                                {extra > 0 && <li className="urgency-more">+{extra} more</li>}
+                              </ul>
+                            )}
+                          </section>
+                        )
+                      })}
+                    </div>
+                  )}
+                </section>
+
+                <section className="dashboard-section dashboard-section-secondary">
+                  <header className="dashboard-section-head">
+                    <div>
+                      <span className="eyebrow">Portfolio overview</span>
+                      <h2>Your book</h2>
+                    </div>
+                    <span className="dashboard-section-meta">{customers.length} {customers.length === 1 ? 'account' : 'accounts'}</span>
+                  </header>
+
+                  <div className="summary-strip">
+                    <Stat label="Total customers" value={stats.customers} icon={<Building2 size={18} />} />
+                    <Stat label="Proof points" value={stats.proof} icon={<Sparkles size={18} />} />
+                    <Stat label="Sales collateral" value={stats.assets} icon={<FileStack size={18} />} />
+                  </div>
+
+                  <div className="status-filters" aria-label="Filter customers by status">
+                    <button className={dashboardStatus === 'All' ? 'active' : ''} onClick={() => setDashboardStatus('All')}>
+                      All <span>{customers.length}</span>
+                    </button>
+                    {statusCounts.map(({ status, count }) => (
+                      <button key={status} className={dashboardStatus === status ? 'active' : ''} onClick={() => setDashboardStatus(status)}>
+                        {status} <span>{count}</span>
                       </button>
-                    </section>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+
+                  <div className="customer-grid">
+                    {dashboardCustomers.map((customer) => (
+                      <button className="customer-card" key={customer.id} onClick={() => openCustomer(customer.id)}>
+                        <div className="card-top">
+                          <div className="logo">{customer.logo}</div>
+                          <span className={`badge ${statusClass(customer.status)}`}>{customer.status}</span>
+                        </div>
+                        <div>
+                          <h3>{customer.name}</h3>
+                          <p>{customer.industry}</p>
+                        </div>
+                        <div className="card-meta">
+                          <span>{['Active Deal', 'At Risk'].includes(customer.status) ? customer.stage : `${customer.health} health`}</span>
+                          <div className="card-stats">
+                            <span>{buildInteractionHistory(customer).length} interactions</span>
+                            <span>{customer.proofCount} proof</span>
+                          </div>
+                        </div>
+                        <div className="last-activity"><Clock3 size={15} /> {customer.lastActivity}</div>
+                      </button>
+                    ))}
+                  </div>
+                </section>
               </section>
 
               <aside className="dashboard-agent">
@@ -4696,6 +5022,10 @@ function buildEmailThread(customer: Customer, kind: 'buyer-context' | 'renewal' 
 
 function Section({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
   return <section className="panel"><div className="section-head"><h2>{title}</h2>{action}</div>{children}</section>
+}
+
+function Stat({ label, value, icon }: { label: string; value: number; icon: ReactNode }) {
+  return <article className="stat-card">{icon}<span>{label}</span><strong>{value}</strong></article>
 }
 
 function Info({ label, value, wide = false }: { label: string; value: string; wide?: boolean }) {
