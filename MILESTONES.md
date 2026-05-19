@@ -53,7 +53,7 @@ Status: `not started` | Target: Week 4–6
 ---
 
 ## M3 — Real Generate
-Status: `not started` | Target: Week 7–9
+Status: `in_progress` | Target: Week 7–9
 
 - [ ] Enrichment pipeline: impact quantification, quote extraction, ICP tagging (GPT-4o)
 - [ ] Draft generation endpoint (template + persona → GPT-4o → Markdown)
@@ -61,6 +61,17 @@ Status: `not started` | Target: Week 7–9
 - [ ] Real review queue: GTM admin inline edit, "send to customer" action
 - [ ] Customer reviewer flow: Auth0-gated email link, approve/reject writing to DB
 - [ ] Email send on customer review request (transactional email provider TBD)
+
+### Collateral Generation MVP (branch: `interview-demo`)
+Status: `in_progress` — Express server collocated at `demo/server/`, OpenAI-backed, wired into the Collateral AI sidebar.
+
+- [ ] `POST /generate/case-study` — GPT-4o → Markdown
+- [ ] `POST /generate/one-pager` — GPT-4o → Markdown + Handlebars + Playwright PDF
+- [ ] `POST /generate/email` — GPT-4o-mini (JSON) → `{ subject, body }`
+- [ ] `POST /generate/linkedin` — GPT-4o → post copy
+- [ ] `POST /generate/quote-card` — GPT-4o-mini + `gpt-image-1` → quote + PNG
+- [ ] Vite proxy `/api/*` → `localhost:8787`, `npm run dev:all` for both processes
+- [ ] `submitCollateralAgent()` in `demo/src/App.tsx` calls `/api/generate/:type` (no more stub)
 
 ---
 

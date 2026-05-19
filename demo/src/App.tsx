@@ -29,6 +29,16 @@ import {
   X,
 } from 'lucide-react'
 import './App.css'
+import {
+  type GenerateResult,
+  type StoryInput,
+  generateCollateral,
+  inferBackendType,
+  summarizeResult,
+  uiAudience,
+  uiChannel,
+  uiTypeLabel,
+} from './collateralApi'
 
 type View = 'dashboard' | 'customerInsights' | 'customerDetail' | 'library' | 'collaterals'
 type CustomerSubView = 'insights' | 'proofs'
@@ -1570,30 +1580,56 @@ function App() {
     setCustomerAgentView('current')
   }
 
-  function submitCollateralAgent() {
+  async function submitCollateralAgent() {
     const text = collateralAgentInput.trim()
     if (!text || collateralAgentThinking) return
-    const turn = collateralAgentMessages.filter((message) => message.role === 'user').length
     setCollateralAgentInput('')
     setCollateralAgentMessages((current) => [...current, { role: 'user', text }])
     setCollateralAgentThinking(true)
-    window.setTimeout(() => {
-      const created = turn > 0 || /create|generate|draft|case|one-pager|website|battlecard/i.test(text)
-      if (created) {
-        const newCollateral = buildAgentCollateral(text, customers, customGeneralCollaterals.length)
-        setCustomGeneralCollaterals((current) => [newCollateral, ...current])
-      }
+
+    const backendType = inferBackendType(text)
+    const story = buildStoryFromCustomers(customers, text)
+
+    if (!story) {
       setCollateralAgentMessages((current) => [
         ...current,
         {
           role: 'agent',
-          text: created
-            ? 'I created a new collateral draft and added it to the table. It is tagged as a general asset until you attach it to a specific customer.'
-            : 'I can create a collateral draft from a goal, audience, proof angle, and channel. Tell me what you want to communicate and whether it should be customer-specific or general.',
+          text: 'I need at least one customer with proof points to generate collateral. Add a customer first.',
         },
       ])
       setCollateralAgentThinking(false)
-    }, 1100 + turn * 250)
+      return
+    }
+
+    try {
+      const result = await generateCollateral(backendType, { story })
+      const newCollateral = mapResultToCollateral(
+        result,
+        text,
+        story,
+        customGeneralCollaterals.length,
+      )
+      setCustomGeneralCollaterals((current) => [newCollateral, ...current])
+      setCollateralAgentMessages((current) => [
+        ...current,
+        {
+          role: 'agent',
+          text: `I drafted a ${uiTypeLabel(backendType).toLowerCase()} grounded in ${story.companyName}'s outcomes. It is in the table as a general asset until you attach it to a customer.`,
+        },
+      ])
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Generation failed.'
+      setCollateralAgentMessages((current) => [
+        ...current,
+        {
+          role: 'agent',
+          text: `Sorry, generation failed: ${message}. Make sure the server is running (npm run dev:server) and OPENAI_API_KEY is set.`,
+        },
+      ])
+    } finally {
+      setCollateralAgentThinking(false)
+    }
   }
 
   function closeProof() {
@@ -3497,9 +3533,8 @@ function buildCustomerAgentReply(
   return replies[turn % replies.length]
 }
 
-function buildAgentCollateral(input: string, customers: Customer[], index: number): Collateral {
+function inferFocusAndMetric(input: string): { communicates: string; metric: string } {
   const lower = input.toLowerCase()
-  const type = lower.includes('battlecard') ? 'Battlecard' : lower.includes('website') ? 'Website copy' : lower.includes('linkedin') ? 'Marketing post' : lower.includes('one-pager') ? 'Sales one-pager' : 'Case study draft'
   const communicates = lower.includes('regulation') || lower.includes('compliance') || lower.includes('security')
     ? 'Handling regulation'
     : lower.includes('roi') || lower.includes('revenue')
@@ -3509,20 +3544,74 @@ function buildAgentCollateral(input: string, customers: Customer[], index: numbe
         : lower.includes('incumbent') || lower.includes('trust')
           ? 'Incumbent trust'
           : 'Proof activation'
-  const metric = communicates === 'ROI' ? 'ROI' : communicates === 'Implementation confidence' ? 'Time saved' : communicates === 'Handling regulation' ? 'Risk reduction' : 'Credibility'
-  const referenceCustomer = customers.find((customer) => customer.proof.length > 0)
+  const metric = communicates === 'ROI'
+    ? 'ROI'
+    : communicates === 'Implementation confidence'
+      ? 'Time saved'
+      : communicates === 'Handling regulation'
+        ? 'Risk reduction'
+        : 'Credibility'
+  return { communicates, metric }
+}
+
+function mapSizeSegment(size: string): 'smb' | 'midmarket' | 'enterprise' | undefined {
+  const lower = size.toLowerCase()
+  if (lower.includes('enterprise')) return 'enterprise'
+  if (lower.includes('mid')) return 'midmarket'
+  if (lower.includes('smb') || lower.includes('small')) return 'smb'
+  return undefined
+}
+
+function buildStoryFromCustomers(customers: Customer[], promptHint: string): StoryInput | null {
+  const reference = customers.find((customer) => customer.proof.length > 0) ?? customers[0]
+  if (!reference) return null
+  const proofs = reference.proof.slice(0, 4)
+  const outcomes = proofs.length > 0
+    ? proofs.map((proof) => ({
+        metric: proof.metric || proof.outcomeType || 'Outcome',
+        value: proof.claim,
+      }))
+    : [{ metric: 'Outcome', value: reference.journeySummary || 'See customer notes' }]
+  const quoteProof = proofs.find((proof) => proof.quote)
+  const useCaseTags = Array.from(
+    new Set(proofs.map((proof) => proof.useCase).filter(Boolean)),
+  ).slice(0, 6)
+  const challenge = `${reference.objection || reference.journeySummary || 'Operational friction'}. User request: ${promptHint}`.slice(0, 1200)
   return {
-    title: `AI draft ${index + 1}: ${type}`,
-    type,
+    companyName: reference.name,
+    industry: reference.industry,
+    sizeSegment: mapSizeSegment(reference.size),
+    challenge,
+    outcomes,
+    quote: quoteProof
+      ? {
+          text: quoteProof.quote,
+          authorName: reference.contacts[0] ?? reference.name,
+        }
+      : undefined,
+    useCaseTags,
+  }
+}
+
+function mapResultToCollateral(
+  result: GenerateResult,
+  promptText: string,
+  story: StoryInput,
+  index: number,
+): Collateral {
+  const { communicates, metric } = inferFocusAndMetric(promptText)
+  return {
+    title: `AI draft ${index + 1}: ${uiTypeLabel(result.type)}`,
+    type: uiTypeLabel(result.type),
     status: 'Internal Only',
-    summary: `Generated from collateral AI request: "${input}". Uses ${referenceCustomer?.name ?? 'the proof library'} as supporting proof.`,
-    goal: input,
+    summary: summarizeResult(result),
+    goal: promptText,
     focus: communicates,
-    referenceProof: referenceCustomer ? `${referenceCustomer.name}: ${referenceCustomer.proof[0]?.metric ?? 'relevant proof'}` : 'General proof library',
+    referenceProof: `${story.companyName}: ${story.outcomes[0]?.metric ?? 'outcome'}`,
     communicates,
     metric,
-    audience: lower.includes('website') || lower.includes('linkedin') ? 'Marketing' : 'Sales',
-    channel: lower.includes('website') ? 'Website' : lower.includes('linkedin') ? 'LinkedIn' : lower.includes('email') ? 'Email' : 'Sales deck',
+    audience: uiAudience(result.type),
+    channel: uiChannel(result.type),
   }
 }
 
