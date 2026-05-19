@@ -1,17 +1,14 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Activity,
   Bot,
   Building2,
   CheckCircle2,
   ChevronDown,
   ChevronLeft,
-  ChevronRight,
   ChevronsUpDown,
   Clock3,
   FileStack,
   FileText,
-  HeartPulse,
   LayoutDashboard,
   Library,
   Mail,
@@ -21,7 +18,6 @@ import {
   Plus,
   Search,
   Send,
-  ShieldCheck,
   Sparkles,
   Sun,
   Upload,
@@ -30,8 +26,7 @@ import {
 } from 'lucide-react'
 import './App.css'
 
-type View = 'dashboard' | 'customerInsights' | 'customerDetail' | 'library' | 'collateral'
-type CustomerSubView = 'insights' | 'proofs'
+type View = 'activeDeals' | 'closedCustomers' | 'customerDetail' | 'integrations' | 'rawData' | 'library' | 'collateralGenerate' | 'collateralPublished'
 type CustomerStatus = 'Active Deal' | 'Onboarding' | 'Live' | 'Expanding' | 'At Risk' | 'Closed' | 'Closed Lost'
 type Approval = 'Internal Only' | 'Customer Approved' | 'Public'
 type Stage = 'Discovery' | 'Proposal Sent' | 'Security Review' | 'Negotiation' | 'Closed Won' | 'Expansion'
@@ -208,10 +203,6 @@ type UrgencyAction = {
   detail: string
 }
 
-const urgencyTiers: UrgencyTier[] = ['High', 'Medium', 'Low']
-
-const customerStatuses: CustomerStatus[] = ['Active Deal', 'Onboarding', 'Live', 'Expanding', 'At Risk', 'Closed', 'Closed Lost']
-
 const currentUser = {
   initial: 'A',
   login: 'ahmed@dalil',
@@ -234,29 +225,34 @@ const defaultCollateralDraft: CollateralDraft = {
   proof: '',
   format: '',
 }
+const nvidiaPitchDeckDraft: CollateralDraft = {
+  audience: 'NVIDIA People, Legal, and Recruiting leadership evaluating Alma as an AI-native immigration partner',
+  proof: 'Alma can safely replace legacy immigration workflow drag with faster, more transparent, attorney-reviewed immigration support for high-stakes global talent teams.',
+  format: 'Slide deck',
+}
 
 const initialCustomers: Customer[] = [
   {
-    id: 'brightcart',
-    name: 'BrightCart',
-    logo: 'BC',
+    id: 'linear',
+    name: 'Linear',
+    logo: 'LN',
     status: 'Live',
     stage: 'Closed Won',
     health: 'Strong',
-    industry: 'Ecommerce SaaS',
-    size: '120 employees',
-    website: 'brightcart.io',
-    contacts: ['Maya Patel, VP Ops', 'Jon Bell, RevOps'],
-    value: '$48K ARR',
+    industry: 'Productivity software',
+    size: '90 employees',
+    website: 'linear.app',
+    contacts: ['Maya Patel, VP Operations', 'Jon Bell, Revenue Operations'],
+    value: '$72K ARR',
     startDate: 'Jan 12, 2026',
     closeDate: 'Mar 4, 2026',
     competitor: 'Internal workflow + incumbent services vendor',
-    personas: ['VP Operations: reduce launch drag', 'RevOps: repeatable proof for sales', 'Founder: compete with larger vendors'],
+    personas: ['VP Operations: reduce launch drag', 'RevOps: repeatable proof for sales', 'Founder: prove impact for upmarket deals'],
     lastActivity: 'QBR transcript 2 days ago',
     objection: 'Implementation bandwidth',
-    journeySummary: 'BrightCart helps ecommerce teams manage customer onboarding at scale. They needed a way to reduce launch prep without pulling engineering into every rollout. So far they like the repeatable workflow and faster handoffs, and they have achieved a 42% reduction in onboarding prep with proof strong enough for approved sales collateral.',
-    interactionCount: 46,
-    proofCount: 12,
+    journeySummary: 'Linear is using Dalil to organize proof across product-led and sales-led motions. They needed a way to reduce launch prep without pulling founders and operators into every upmarket conversation. So far they like the repeatable workflow and faster handoffs, and they have achieved a 38% reduction in launch prep with proof strong enough for approved sales collateral.',
+    interactionCount: 58,
+    proofCount: 14,
     interactions: [
       {
         type: 'Transcript',
@@ -283,16 +279,16 @@ const initialCustomers: Customer[] = [
       {
         id: 'p1',
         claim: 'Reduced onboarding prep time by 42% for a lean post-sales team.',
-        sourceCustomer: 'BrightCart',
-        metric: '42% less onboarding prep',
-        quote: 'We got customers live without waiting on engineering every time.',
-        useCase: 'Lean team scaling',
+        sourceCustomer: 'Linear',
+        metric: '38% less launch prep',
+        quote: 'We got upmarket prospects the right proof without rebuilding the story every time.',
+        useCase: 'Upmarket rollout',
         outcomeType: 'Operational efficiency',
         bestFor: 'Prospects worried about implementation bandwidth',
         approval: 'Customer Approved',
         tags: ['onboarding', 'efficiency', 'lean teams'],
-        industries: ['Ecommerce SaaS'],
-        companySizes: ['80-150 employees'],
+        industries: ['Productivity software'],
+        companySizes: ['50-150 employees'],
         personas: ['VP Operations', 'RevOps'],
         dealStages: ['Negotiation', 'Closed Won'],
         confidence: 0.92,
@@ -307,16 +303,16 @@ const initialCustomers: Customer[] = [
       {
         id: 'p2',
         claim: 'Moved from founder-led customer proof to a repeatable sales asset library.',
-        sourceCustomer: 'BrightCart',
-        metric: '11 reusable proof snippets',
-        quote: 'Sales finally had examples without asking the founder every time.',
+        sourceCustomer: 'Linear',
+        metric: '12 reusable proof snippets',
+        quote: 'Sales finally had approved examples without asking the founder every time.',
         useCase: 'Sales enablement',
         outcomeType: 'Credibility',
         bestFor: 'Founder-led startups formalizing sales',
         approval: 'Internal Only',
         tags: ['sales enablement', 'process maturity'],
-        industries: ['Ecommerce SaaS', 'Healthcare SaaS'],
-        companySizes: ['80-200 employees'],
+        industries: ['Productivity software', 'SaaS'],
+        companySizes: ['50-150 employees'],
         personas: ['Founder', 'RevOps'],
         dealStages: ['Discovery', 'Proposal Sent'],
         confidence: 0.78,
@@ -331,40 +327,40 @@ const initialCustomers: Customer[] = [
     ],
     collateral: [
       {
-        title: 'BrightCart sales proof card',
+        title: 'Linear upmarket proof card',
         type: 'Sales snippet',
         status: 'Customer Approved',
         summary: 'Use when a prospect says implementation will require too much internal bandwidth.',
       },
       {
-        title: 'BrightCart case study: lean onboarding at scale',
+        title: 'Linear case study: upmarket rollout at scale',
         type: 'Case study draft',
         status: 'Internal Only',
-        summary: 'Draft case study showing how BrightCart reduced onboarding prep by 42% while keeping a lean post-sales team.',
+        summary: 'Draft case study showing how Linear reduced launch prep by 38% across upmarket sales motions.',
       },
     ],
   },
   {
-    id: 'acme-health',
-    name: 'Acme Health',
-    logo: 'AH',
+    id: 'unitedhealth',
+    name: 'UnitedHealth Group',
+    logo: 'UH',
     status: 'Active Deal',
     stage: 'Security Review',
     health: 'Stable',
-    industry: 'Healthcare SaaS',
-    size: '210 employees',
-    website: 'acmehealth.com',
+    industry: 'Healthcare',
+    size: '440K employees',
+    website: 'unitedhealthgroup.com',
     contacts: ['Sarah Kim, VP Operations', 'Leo Grant, Security Lead'],
-    value: '$64K ARR',
+    value: '$2.1M ARR',
     startDate: 'Apr 18, 2026',
     closeDate: 'May 29, 2026',
     competitor: 'Large incumbent platform',
     personas: ['VP Operations: scale without process drag', 'Security Lead: low-risk rollout', 'CRO: credible proof before procurement'],
     lastActivity: 'Email received today',
     objection: 'Can this scale without implementation drag?',
-    journeySummary: 'Acme Health is evaluating Dalil while moving through security review. Their team wants confidence that implementation will not create operational drag during procurement. They are most interested in proof from similar healthcare and lean-operations teams, especially examples that show rollout speed and low internal lift.',
-    interactionCount: 18,
-    proofCount: 8,
+    journeySummary: 'UnitedHealth Group is evaluating Dalil while moving through security review. Their team wants confidence that implementation will not create operational drag during enterprise procurement. They are most interested in proof from similar regulated teams, especially examples that show rollout speed, governance, and low internal lift.',
+    interactionCount: 156,
+    proofCount: 32,
     interactions: [
       {
         type: 'Meeting',
@@ -382,18 +378,18 @@ const initialCustomers: Customer[] = [
     ],
     proof: [
       {
-        id: 'p-acme-1',
+        id: 'p-unitedhealth-1',
         claim: 'Security-review accounts can adopt Dalil without adding a heavy implementation project.',
-        sourceCustomer: 'Acme Health',
-        metric: 'Pilot workspace configured in 6 business days',
+        sourceCustomer: 'UnitedHealth Group',
+        metric: 'Pilot workspace configured in 11 business days',
         quote: 'The team could see the proof workflow without needing a long implementation cycle.',
         useCase: 'Low-lift implementation',
         outcomeType: 'Implementation confidence',
         bestFor: 'Prospects worried about implementation drag during security review',
         approval: 'Internal Only',
         tags: ['implementation', 'security review', 'healthcare'],
-        industries: ['Healthcare SaaS'],
-        companySizes: ['200-300 employees'],
+        industries: ['Healthcare'],
+        companySizes: ['100K+ employees'],
         personas: ['VP Operations', 'Security Lead'],
         dealStages: ['Security Review', 'Negotiation'],
         confidence: 0.86,
@@ -406,18 +402,18 @@ const initialCustomers: Customer[] = [
         counterObjections: ['Implementation drag', 'Security review risk'],
       },
       {
-        id: 'p-acme-2',
-        claim: 'Acme Health’s team is responding to proof that shows credible rollout with limited internal lift.',
-        sourceCustomer: 'Acme Health',
-        metric: '3 stakeholder concerns mapped to existing proof',
+        id: 'p-unitedhealth-2',
+        claim: 'UnitedHealth Group’s team is responding to proof that shows credible rollout with limited internal lift.',
+        sourceCustomer: 'UnitedHealth Group',
+        metric: '18 stakeholder concerns mapped to existing proof',
         quote: 'What we need is confidence this does not become another process for operations.',
         useCase: 'Active deal proof matching',
         outcomeType: 'Objection handling',
         bestFor: 'Healthcare SaaS teams comparing Dalil against larger incumbents',
         approval: 'Internal Only',
         tags: ['objection handling', 'healthcare', 'incumbent'],
-        industries: ['Healthcare SaaS'],
-        companySizes: ['200-300 employees'],
+        industries: ['Healthcare'],
+        companySizes: ['100K+ employees'],
         personas: ['VP Operations', 'CRO'],
         dealStages: ['Security Review', 'Negotiation'],
         confidence: 0.82,
@@ -433,26 +429,26 @@ const initialCustomers: Customer[] = [
     collateral: [],
   },
   {
-    id: 'greenline',
-    name: 'Greenline',
-    logo: 'GL',
+    id: 'mercury',
+    name: 'Mercury',
+    logo: 'MC',
     status: 'Expanding',
     stage: 'Expansion',
     health: 'Strong',
     industry: 'Fintech',
-    size: '180 employees',
-    website: 'greenline.co',
+    size: '850 employees',
+    website: 'mercury.com',
     contacts: ['Nora Saleh, Head of Revenue', 'Will Hart, COO'],
-    value: '$72K ARR',
+    value: '$165K ARR',
     startDate: 'Feb 2, 2026',
     closeDate: 'Apr 11, 2026',
     competitor: 'Incumbent analytics suite',
     personas: ['Head of Revenue: faster proof in late-stage deals', 'COO: repeatable process', 'Founder: incumbent displacement'],
     lastActivity: 'Meeting yesterday',
     objection: 'Why not use the larger vendor?',
-    journeySummary: 'Greenline uses Dalil to support expansion and competitive sales motions in fintech. They came in needing stronger proof against a larger incumbent and wanted a repeatable way to arm revenue teams. They like the speed of adoption and have already turned the incumbent displacement story into public proof.',
-    interactionCount: 63,
-    proofCount: 9,
+    journeySummary: 'Mercury uses Dalil to support expansion and competitive sales motions in fintech. They came in needing stronger proof against a larger incumbent and wanted a repeatable way to arm revenue teams. They like the speed of adoption and have already turned the incumbent displacement story into approved proof.',
+    interactionCount: 96,
+    proofCount: 18,
     interactions: [
       {
         type: 'Meeting',
@@ -466,8 +462,8 @@ const initialCustomers: Customer[] = [
       {
         id: 'p3',
         claim: 'Replaced an incumbent after slow implementation cycles blocked growth.',
-        sourceCustomer: 'Greenline',
-        metric: '3 teams activated in 45 days',
+        sourceCustomer: 'Mercury',
+        metric: '4 teams activated in 32 days',
         quote: 'The proof was not just the product. It was how quickly the team adopted it.',
         useCase: 'Competitive displacement',
         outcomeType: 'Adoption speed',
@@ -475,7 +471,7 @@ const initialCustomers: Customer[] = [
         approval: 'Public',
         tags: ['displacement', 'speed-to-value', 'incumbent'],
         industries: ['Fintech'],
-        companySizes: ['100-250 employees'],
+        companySizes: ['500-1,000 employees'],
         personas: ['Head of Revenue', 'COO'],
         dealStages: ['Negotiation', 'Closed Won', 'Expansion'],
         confidence: 0.95,
@@ -490,7 +486,7 @@ const initialCustomers: Customer[] = [
     ],
     collateral: [
       {
-        title: 'Incumbent displacement one-pager',
+        title: 'Enterprise incumbent displacement one-pager',
         type: 'One-pager',
         status: 'Public',
         summary: 'Short external asset for competitive late-stage evaluations.',
@@ -498,26 +494,26 @@ const initialCustomers: Customer[] = [
     ],
   },
   {
-    id: 'medpilot',
-    name: 'MedPilot',
-    logo: 'MP',
+    id: 'kaiser-permanente',
+    name: 'Kaiser Permanente',
+    logo: 'KP',
     status: 'Onboarding',
     stage: 'Closed Won',
     health: 'Stable',
-    industry: 'Healthcare SaaS',
-    size: '85 employees',
-    website: 'medpilot.ai',
+    industry: 'Healthcare',
+    size: '305K employees',
+    website: 'kaiserpermanente.org',
     contacts: ['Ari Cohen, COO', 'Priya Das, CS Lead'],
-    value: '$38K ARR',
+    value: '$1.6M ARR',
     startDate: 'Dec 9, 2025',
     closeDate: 'Feb 14, 2026',
-    competitor: 'Manual process',
+    competitor: 'Manual process and internal enablement tooling',
     personas: ['COO: rollout confidence', 'CS Lead: less manual follow-up'],
     lastActivity: 'Note updated last week',
     objection: 'This may create too much change management.',
-    journeySummary: 'MedPilot is a healthcare SaaS team that needed a lightweight rollout path for a small operations group. Their goal was to prove a new workflow could launch without adding process overhead. The main achievement so far is a credible implementation story around a two-person launch team.',
-    interactionCount: 24,
-    proofCount: 6,
+    journeySummary: 'Kaiser Permanente is a healthcare enterprise that needed a governed rollout path for a large operations group. Their goal was to prove a new workflow could launch without adding process overhead. The main achievement so far is a credible implementation story across a tightly coordinated launch team.',
+    interactionCount: 184,
+    proofCount: 28,
     interactions: [
       {
         type: 'Note',
@@ -531,16 +527,16 @@ const initialCustomers: Customer[] = [
       {
         id: 'p4',
         claim: 'Launched a new workflow with a two-person operations team.',
-        sourceCustomer: 'MedPilot',
-        metric: '2-person launch team',
-        quote: 'The rollout felt lighter than the incumbent process we replaced.',
+        sourceCustomer: 'Kaiser Permanente',
+        metric: '42-person launch team across 6 regions',
+        quote: 'The rollout felt lighter than the incumbent process we replaced, even across multiple regions.',
         useCase: 'Change management',
         outcomeType: 'Implementation',
         bestFor: 'Prospects with lean ops or low implementation capacity',
         approval: 'Internal Only',
         tags: ['lean ops', 'change management'],
-        industries: ['Healthcare SaaS'],
-        companySizes: ['50-100 employees'],
+        industries: ['Healthcare'],
+        companySizes: ['100K+ employees'],
         personas: ['COO', 'CS Lead'],
         dealStages: ['Discovery', 'Security Review'],
         confidence: 0.81,
@@ -556,26 +552,26 @@ const initialCustomers: Customer[] = [
     collateral: [],
   },
   {
-    id: 'stacklane',
-    name: 'Stacklane',
-    logo: 'SL',
+    id: 'retool',
+    name: 'Retool',
+    logo: 'RT',
     status: 'Live',
     stage: 'Closed Won',
     health: 'Strong',
-    industry: 'DevOps tooling',
-    size: '145 employees',
-    website: 'stacklane.dev',
+    industry: 'Developer tools',
+    size: '500 employees',
+    website: 'retool.com',
     contacts: ['Marcus Lee, Head of Engineering', 'Priya Nair, CTO'],
-    value: '$52K ARR',
+    value: '$128K ARR',
     startDate: 'Jan 22, 2026',
     closeDate: 'Mar 18, 2026',
-    competitor: 'CircleCI',
+    competitor: 'Internal knowledge systems',
     personas: ['Head of Engineering: reduce pipeline drag', 'CTO: prove ROI quickly'],
     lastActivity: 'Expansion email 4 days ago',
     objection: 'Will engineering teams adopt another workflow?',
-    journeySummary: 'Stacklane sells DevOps tooling to engineering teams and needed proof that workflow change would produce real technical ROI. They liked that the rollout connected directly to pipeline speed and developer experience. The relationship has produced strong proof around faster CI cycles and migration away from CircleCI.',
-    interactionCount: 38,
-    proofCount: 8,
+    journeySummary: 'Retool needed proof that workflow change would produce real technical ROI across developer-facing sales motions. They liked that the rollout connected directly to engineering velocity and developer experience. The relationship has produced strong proof around faster proof retrieval and cross-team reuse.',
+    interactionCount: 74,
+    proofCount: 16,
     interactions: [
       {
         type: 'Email',
@@ -596,16 +592,16 @@ const initialCustomers: Customer[] = [
       {
         id: 'p6',
         claim: 'Cut average CI pipeline time from 18 minutes to 6 minutes.',
-        sourceCustomer: 'Stacklane',
-        metric: '67% faster pipelines',
-        quote: 'Our engineers stopped dreading deployments. That alone is worth it.',
+        sourceCustomer: 'Retool',
+        metric: '49% faster proof retrieval',
+        quote: 'Our teams stopped rebuilding the same customer evidence for every strategic account.',
         useCase: 'Engineering productivity',
         outcomeType: 'Performance',
         bestFor: 'DevOps prospects comparing workflow speed and ROI',
         approval: 'Customer Approved',
         tags: ['performance', 'engineering', 'cost reduction'],
-        industries: ['DevOps tooling'],
-        companySizes: ['100-200 employees'],
+        industries: ['Developer tools'],
+        companySizes: ['250-750 employees'],
         personas: ['Head of Engineering', 'CTO'],
         dealStages: ['Proposal Sent', 'Negotiation'],
         confidence: 0.9,
@@ -628,26 +624,26 @@ const initialCustomers: Customer[] = [
     ],
   },
   {
-    id: 'movo-hr',
-    name: 'Movo HR',
-    logo: 'MV',
+    id: 'vercel',
+    name: 'Vercel',
+    logo: 'VC',
     status: 'Expanding',
     stage: 'Expansion',
     health: 'Stable',
-    industry: 'HR Tech',
-    size: '95 employees',
-    website: 'movohr.com',
+    industry: 'Developer platform',
+    size: '1,200 employees',
+    website: 'vercel.com',
     contacts: ['Sophie Turner, Head of People', 'James Park, COO'],
-    value: '$31K ARR',
+    value: '$210K ARR',
     startDate: 'Feb 8, 2026',
     closeDate: 'Apr 3, 2026',
-    competitor: 'BambooHR',
-    personas: ['Head of People: faster new-hire ramp', 'COO: less admin burden'],
+    competitor: 'Internal enablement workflows',
+    personas: ['Head of GTM: faster enterprise ramp', 'COO: less admin burden'],
     lastActivity: 'Slack note yesterday',
-    objection: 'Will managers actually use this?',
-    journeySummary: 'Movo HR focuses on employee onboarding for growing people teams. They needed help proving manager adoption and faster new-hire productivity. They like that the workflow gives managers a repeatable path, and the strongest outcome so far is a shorter ramp from three weeks to nine days.',
-    interactionCount: 41,
-    proofCount: 7,
+    objection: 'Will sales engineers actually use this?',
+    journeySummary: 'Vercel focuses on developer platform workflows. They needed help proving sales-engineer adoption and faster enterprise ramp. They like that the workflow gives teams a repeatable path, and the strongest outcome so far is a shorter enablement ramp from three weeks to nine days.',
+    interactionCount: 112,
+    proofCount: 22,
     interactions: [
       {
         type: 'Note',
@@ -661,17 +657,17 @@ const initialCustomers: Customer[] = [
       {
         id: 'p7',
         claim: 'Reduced new-hire time-to-productivity from 3 weeks to 9 days.',
-        sourceCustomer: 'Movo HR',
+        sourceCustomer: 'Vercel',
         metric: '57% faster ramp',
-        quote: 'Managers finally had a repeatable onboarding path they would actually use.',
-        useCase: 'Employee onboarding',
+        quote: 'Sales engineers finally had a repeatable enterprise proof path they would actually use.',
+        useCase: 'Enterprise enablement',
         outcomeType: 'Time-to-value',
-        bestFor: 'People teams worried about manager adoption',
+        bestFor: 'Developer platform teams worried about sales-engineer adoption',
         approval: 'Public',
         tags: ['onboarding', 'manager adoption', 'time-to-value'],
-        industries: ['HR Tech'],
-        companySizes: ['50-150 employees'],
-        personas: ['Head of People', 'COO'],
+        industries: ['Developer platform'],
+        companySizes: ['1,000-2,000 employees'],
+        personas: ['Head of GTM', 'COO'],
         dealStages: ['Discovery', 'Proposal Sent'],
         confidence: 0.87,
         dateCaptured: 'May 8, 2026',
@@ -680,32 +676,32 @@ const initialCustomers: Customer[] = [
         winRate: 0.69,
         formats: ['Customer quote', 'Data point'],
         status: 'Active',
-        counterObjections: ['Manager adoption'],
+        counterObjections: ['Sales engineer adoption'],
       },
     ],
     collateral: [],
   },
   {
-    id: 'clearpath',
-    name: 'Clearpath',
-    logo: 'CP',
+    id: 'thomson-reuters',
+    name: 'Thomson Reuters',
+    logo: 'TR',
     status: 'Active Deal',
     stage: 'Proposal Sent',
     health: 'Stable',
-    industry: 'Legal Tech',
-    size: '70 employees',
-    website: 'clearpathlegal.com',
+    industry: 'Legal and tax technology',
+    size: '26K employees',
+    website: 'thomsonreuters.com',
     contacts: ['Anna Reeves, General Counsel'],
-    value: '$34K ARR',
+    value: '$1.1M ARR',
     startDate: 'Apr 25, 2026',
     closeDate: 'Jun 14, 2026',
-    competitor: 'DocuSign CLM',
+    competitor: 'DocuSign CLM and internal knowledge tools',
     personas: ['General Counsel: shorten contract turnaround', 'CFO: justify switching cost'],
     lastActivity: 'Proposal sent 5 days ago',
     objection: 'We need confidence this beats our current CLM process.',
-    journeySummary: 'Clearpath is a legal tech prospect comparing Dalil against their current CLM process. They need help building confidence that switching will reduce contract turnaround without disrupting legal operations. The relationship is still in proposal stage, so the next goal is to activate relevant proof from other ops-heavy customers.',
-    interactionCount: 11,
-    proofCount: 1,
+    journeySummary: 'Thomson Reuters is a legal and tax technology prospect comparing Dalil against their current CLM and knowledge workflows. They need help building confidence that switching will reduce contract turnaround without disrupting legal operations. The relationship is still in proposal stage, so the next goal is to activate relevant proof from other enterprise customers.',
+    interactionCount: 92,
+    proofCount: 12,
     interactions: [
       {
         type: 'Meeting',
@@ -724,26 +720,26 @@ const initialCustomers: Customer[] = [
     collateral: [],
   },
   {
-    id: 'loopline',
-    name: 'Loopline',
-    logo: 'LL',
+    id: 'ramp',
+    name: 'Ramp',
+    logo: 'RP',
     status: 'Closed',
     stage: 'Closed Won',
     health: 'Strong',
-    industry: 'Customer Success',
-    size: '160 employees',
-    website: 'loopline.io',
-    contacts: ['Maya Singh, VP Customer Success', 'Oliver Grant, CEO'],
-    value: '$44K ARR',
+    industry: 'Fintech',
+    size: '1,000 employees',
+    website: 'ramp.com',
+    contacts: ['Maya Singh, VP Customer Success', 'Oliver Grant, COO'],
+    value: '$185K ARR',
     startDate: 'Nov 17, 2025',
     closeDate: 'Jan 20, 2026',
-    competitor: 'ChurnZero',
-    personas: ['VP CS: reduce preventable churn', 'CEO: protect expansion revenue'],
+    competitor: 'Internal customer success tooling',
+    personas: ['VP CS: reduce preventable churn', 'COO: protect expansion revenue'],
     lastActivity: 'Business review 2 weeks ago',
     objection: 'Can we prove this will save revenue before renewal season?',
-    journeySummary: 'Loopline supports customer success teams trying to reduce preventable churn. They needed revenue-protection proof before renewal season and liked the visibility Dalil created around risk signals. The relationship produced a strong churn-reduction story and a customer-approved one-pager.',
-    interactionCount: 58,
-    proofCount: 10,
+    journeySummary: 'Ramp supports fast-growing customer success teams trying to reduce preventable churn. They needed revenue-protection proof before renewal season and liked the visibility Dalil created around risk signals. The relationship produced a strong retention story and a customer-approved one-pager.',
+    interactionCount: 128,
+    proofCount: 24,
     interactions: [
       {
         type: 'Meeting',
@@ -757,17 +753,17 @@ const initialCustomers: Customer[] = [
       {
         id: 'p8',
         claim: 'Reduced churn rate from 8.2% to 3.1% in six months.',
-        sourceCustomer: 'Loopline',
-        metric: '$180K ARR saved',
-        quote: 'We finally have visibility into why customers leave before it is too late.',
+        sourceCustomer: 'Ramp',
+        metric: '$820K ARR influenced',
+        quote: 'We finally have visibility into why expansion customers stall before it is too late.',
         useCase: 'Churn prevention',
         outcomeType: 'Revenue saved',
         bestFor: 'CS leaders who need revenue-protection proof',
         approval: 'Customer Approved',
         tags: ['churn reduction', 'revenue saved', 'customer success'],
-        industries: ['Customer Success'],
-        companySizes: ['100-200 employees'],
-        personas: ['VP Customer Success', 'CEO'],
+        industries: ['Fintech', 'Customer success'],
+        companySizes: ['750-1,500 employees'],
+        personas: ['VP Customer Success', 'COO'],
         dealStages: ['Negotiation', 'Closed Won'],
         confidence: 0.93,
         dateCaptured: 'Apr 24, 2026',
@@ -789,26 +785,26 @@ const initialCustomers: Customer[] = [
     ],
   },
   {
-    id: 'northbeam-ai',
-    name: 'Northbeam AI',
-    logo: 'NB',
+    id: 'nvidia',
+    name: 'NVIDIA',
+    logo: 'NV',
     status: 'At Risk',
     stage: 'Negotiation',
     health: 'Needs attention',
     industry: 'AI Infrastructure',
-    size: '240 employees',
-    website: 'northbeam.ai',
+    size: '30K employees',
+    website: 'nvidia.com',
     contacts: ['Rachel Kim, VP Marketing', 'Dev Patel, Head of Data'],
-    value: '$82K ARR',
+    value: '$3.2M ARR',
     startDate: 'Apr 4, 2026',
     closeDate: 'May 24, 2026',
-    competitor: 'Large cloud incumbent',
+    competitor: 'Large cloud incumbent and internal AI enablement tooling',
     personas: ['Head of Data: reliability proof', 'VP Marketing: faster analytics delivery'],
     lastActivity: 'Negotiation call today',
     objection: 'Why trust a younger vendor for critical infrastructure?',
-    journeySummary: 'Northbeam AI is a late-stage active deal in AI infrastructure. They need proof that a younger vendor can be trusted for critical systems, especially against a large cloud incumbent. The current goal is to use reliability and incumbent-displacement stories to get the deal through negotiation.',
-    interactionCount: 27,
-    proofCount: 6,
+    journeySummary: 'NVIDIA is a late-stage active deal in AI infrastructure. They need proof that Dalil can be trusted for critical enterprise workflows, especially against large cloud incumbents and internal tooling. The current goal is to use reliability and incumbent-displacement stories to get the deal through negotiation.',
+    interactionCount: 268,
+    proofCount: 46,
     interactions: [
       {
         type: 'Meeting',
@@ -820,9 +816,9 @@ const initialCustomers: Customer[] = [
     ],
     proof: [
       {
-        id: 'northbeam-security-1',
+        id: 'nvidia-security-1',
         claim: 'Dev Patel approved Dalil\'s source-traceability workflow as a viable security path for sharing customer proof.',
-        sourceCustomer: 'Northbeam AI',
+        sourceCustomer: 'NVIDIA',
         metric: 'Every proof asset shows source record and approval status',
         quote: 'Seeing the source link and approval status next to each proof point gives us a way to use this without creating a security exception.',
         useCase: 'Security-sensitive proof activation',
@@ -831,7 +827,7 @@ const initialCustomers: Customer[] = [
         approval: 'Internal Only',
         tags: ['security', 'source traceability', 'approval workflow'],
         industries: ['AI Infrastructure', 'Data platforms'],
-        companySizes: ['200-500 employees'],
+        companySizes: ['25K-50K employees'],
         personas: ['Head of Data', 'Security Lead', 'Founder'],
         dealStages: ['Security Review', 'Negotiation'],
         confidence: 0.86,
@@ -844,9 +840,9 @@ const initialCustomers: Customer[] = [
         counterObjections: ['Vendor trust', 'Sensitive customer data', 'Security review'],
       },
       {
-        id: 'northbeam-reliability-1',
+        id: 'nvidia-reliability-1',
         claim: 'Rachel Kim said Dalil shortened pre-call proof prep by turning scattered customer evidence into reusable deal collateral.',
-        sourceCustomer: 'Northbeam AI',
+        sourceCustomer: 'NVIDIA',
         metric: 'Email, CRM, calendar, and meeting notes consolidated into one customer profile',
         quote: 'This is the customer evidence we need ready before enterprise calls instead of rebuilding it every time.',
         useCase: 'Critical workflow reliability',
@@ -855,7 +851,7 @@ const initialCustomers: Customer[] = [
         approval: 'Internal Only',
         tags: ['reliability', 'incumbent displacement', 'data control'],
         industries: ['AI Infrastructure'],
-        companySizes: ['200-500 employees'],
+        companySizes: ['25K-50K employees'],
         personas: ['Head of Data', 'VP Marketing'],
         dealStages: ['Negotiation'],
         confidence: 0.81,
@@ -868,10 +864,10 @@ const initialCustomers: Customer[] = [
         counterObjections: ['Larger incumbent trust', 'Critical infrastructure risk'],
       },
       {
-        id: 'northbeam-incumbent-1',
-        claim: 'Northbeam\'s team aligned around Dalil because sensitive proof stays controlled instead of being copied across sales docs.',
-        sourceCustomer: 'Northbeam AI',
-        metric: '2 senior stakeholders aligned on controlled proof workflow',
+        id: 'nvidia-incumbent-1',
+        claim: 'NVIDIA\'s team aligned around Dalil because sensitive proof stays controlled instead of being copied across sales docs.',
+        sourceCustomer: 'NVIDIA',
+        metric: '9 senior stakeholders aligned on controlled proof workflow',
         quote: 'The value is that the evidence stays in one controlled place, not copied across slides and messages without context.',
         useCase: 'Incumbent displacement',
         outcomeType: 'Executive alignment',
@@ -879,7 +875,7 @@ const initialCustomers: Customer[] = [
         approval: 'Internal Only',
         tags: ['incumbent displacement', 'executive alignment', 'sales proof'],
         industries: ['AI Infrastructure', 'Cloud infrastructure'],
-        companySizes: ['200-500 employees'],
+        companySizes: ['25K-50K employees'],
         personas: ['Founder', 'Head of Data', 'VP Marketing'],
         dealStages: ['Negotiation'],
         confidence: 0.74,
@@ -894,13 +890,13 @@ const initialCustomers: Customer[] = [
     ],
     collateral: [
       {
-        title: 'Northpoint AI security case study',
+        title: 'NVIDIA security case study',
         type: 'Case study draft',
         status: 'Internal Only',
         summary: 'Draft case study for Dev Patel showing how Dalil keeps customer proof source-traceable, approval-aware, and controlled for security-sensitive teams.',
       },
       {
-        title: 'Northbeam incumbent trust one-pager',
+        title: 'NVIDIA incumbent trust one-pager',
         type: 'One-pager',
         status: 'Internal Only',
         summary: 'Sales one-pager positioning Dalil as a focused proof layer for teams comparing against broad incumbent platforms.',
@@ -1028,15 +1024,15 @@ const chatStarters: Record<string, string> = {
   'Generate website proof block': "Got it — let's draft a proof block for the website. Which segment should I anchor it to: Series A-B operational SaaS, lean post-sales teams, or incumbent displacement?",
   'Generate LinkedIn post': "Sure — what's the angle? A founder POV, a customer win story, or an industry insight grounded in your closed customers?",
   'Generate investor snippet': "Let's tighten this for investors. Are we showing traction (closed ARR, win rate), proof of repeatability (segments), or differentiation (incumbent displacement)?",
-  'Generate one-pager': "On it. Should the one-pager be ICP-first, customer-story-first, or competitor-displacement-first? I'll pull from BrightCart, Greenline, and MedPilot for proof.",
+  'Generate one-pager': "On it. Should the one-pager be ICP-first, customer-story-first, or competitor-displacement-first? I'll pull from Linear, Mercury, and Vercel for proof.",
   'What proof is relevant to their main objection?': "Looking at this customer's main objection. Want me to surface the strongest exact match, or pull a few proof points covering different angles of the objection?",
-  'Draft a follow-up email addressing implementation risk': "Got it — drafting a follow-up that addresses implementation risk. Should I lead with a customer story (BrightCart's lean rollout) or with concrete numbers (12-day implementation, 42% less prep)?",
+  'Draft a follow-up email addressing implementation risk': "Got it — drafting a follow-up that addresses implementation risk. Should I lead with a customer story (Linear's upmarket rollout) or with concrete numbers (32-day team activation, 38% less launch prep)?",
   "Prepare tomorrow's meeting brief": "On it. For the brief, should I focus on what to cover (talking points), what to ask (discovery questions), or what to show (proof to bring)?",
 }
 
 const stockReplies = [
   'Pulling the relevant proof points now…',
-  'Here is a first draft based on BrightCart, Greenline, and MedPilot:\n\n"Lean teams ship faster when their proof travels with them. Across operational SaaS, our customers reduced onboarding prep by 42%, replaced incumbents in 45 days, and launched new workflows with a two-person team — without extra hiring or process."\n\nWant me to tighten the lead, or pivot to a different angle?',
+  'Here is a first draft based on Linear, Mercury, and Vercel:\n\n"Fast-growing teams move faster when their proof travels with them. Across startup and scaleup customers, teams reduced launch prep by 38%, activated four GTM teams in 32 days, and shortened enterprise enablement from three weeks to nine days without adding process overhead."\n\nWant me to tighten the lead, or pivot to a different angle?',
   'Updated. The new version emphasizes implementation speed and reads cleaner. Anything else to refine?',
   'Saved as a draft to your proof library. You can keep iterating or mark this task complete whenever you are ready.',
 ]
@@ -1071,12 +1067,10 @@ function readInitialTheme(): Theme {
 }
 
 function App() {
-  const [view, setView] = useState<View>('dashboard')
+  const [view, setView] = useState<View>('activeDeals')
   const [theme, setTheme] = useState<Theme>(readInitialTheme)
   const [customers, setCustomers] = useState(initialCustomers)
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [customerSubView, setCustomerSubView] = useState<CustomerSubView>('insights')
-  const [customerListOpen, setCustomerListOpen] = useState(true)
   const [showNewCustomer, setShowNewCustomer] = useState(false)
   const [draft, setDraft] = useState<CustomerDraft>(emptyDraft)
   const [chatTask, setChatTask] = useState<string | null>(null)
@@ -1092,29 +1086,22 @@ function App() {
   const [selectedCollateralCustomer, setSelectedCollateralCustomer] = useState<Customer | null>(null)
   const [editingProof, setEditingProof] = useState(false)
   const [proofDraft, setProofDraft] = useState<ProofDraft | null>(null)
-  const [dashboardStatus, setDashboardStatus] = useState<CustomerStatus | 'All'>('All')
   const [libraryProofFilter, setLibraryProofFilter] = useState<ProofAsset['type'] | 'All'>('All')
+  const [libraryCustomerFilter, setLibraryCustomerFilter] = useState('All')
   const [collateralCustomerFilter, setCollateralCustomerFilter] = useState('All')
   const [collateralCommunicationFilter, setCollateralCommunicationFilter] = useState('All')
   const [collateralMetricFilter, setCollateralMetricFilter] = useState('All')
   const [collateralStatusFilter, setCollateralStatusFilter] = useState<Approval | 'All'>('All')
   const [collateralTypeFilter, setCollateralTypeFilter] = useState('All')
-  const [generalAgentInput, setGeneralAgentInput] = useState('')
-  const [generalAgentMessages, setGeneralAgentMessages] = useState<ChatMessage[]>([])
-  const [generalAgentHistory, setGeneralAgentHistory] = useState<string[]>([])
-  const [generalAgentView, setGeneralAgentView] = useState<'current' | 'history'>('current')
-  const [generalAgentThinking, setGeneralAgentThinking] = useState(false)
-  const [customerAgentInput, setCustomerAgentInput] = useState('')
+  const [collateralNavOpen, setCollateralNavOpen] = useState(true)
   const [customerAgentMessages, setCustomerAgentMessages] = useState<ChatMessage[]>([])
-  const [customerAgentHistory, setCustomerAgentHistory] = useState<string[]>([])
-  const [customerAgentView, setCustomerAgentView] = useState<'current' | 'history'>('current')
   const [customerAgentThinking, setCustomerAgentThinking] = useState(false)
   const [collateralAgentInput, setCollateralAgentInput] = useState('')
   const [collateralAgentMessages, setCollateralAgentMessages] = useState<ChatMessage[]>([])
   const [collateralAgentThinking, setCollateralAgentThinking] = useState(false)
   const [customGeneralCollateral, setCustomGeneralCollateral] = useState<Collateral[]>([])
   const [timelineView, setTimelineView] = useState<'condensed' | 'comprehensive'>('condensed')
-  const [dataTab, setDataTab] = useState<DataTab>('Emails')
+  const [rawDataCustomerId, setRawDataCustomerId] = useState<string | null>(null)
   const [selectedDataPoint, setSelectedDataPoint] = useState<CustomerDataPoint | null>(null)
   const [selectedUpcomingItem, setSelectedUpcomingItem] = useState<UpcomingItem | null>(null)
   const [showSourceSetup, setShowSourceSetup] = useState(false)
@@ -1126,8 +1113,6 @@ function App() {
   const [collateralDraft, setCollateralDraft] = useState<CollateralDraft>(defaultCollateralDraft)
   const [uploadedDataPoints, setUploadedDataPoints] = useState<Record<string, CustomerDataPoint[]>>({})
   const [customUpcomingItems, setCustomUpcomingItems] = useState<Record<string, UpcomingItem[]>>({})
-  const [incomingEmailParsing, setIncomingEmailParsing] = useState(false)
-  const [calendarNoticeParsing, setCalendarNoticeParsing] = useState(false)
   const [collateralGenerating, setCollateralGenerating] = useState(false)
   const [captureSourceType, setCaptureSourceType] = useState<CaptureSourceType>('Email')
   const [captureSetupDraft, setCaptureSetupDraft] = useState<CaptureSetupDraft>(defaultCaptureSetup)
@@ -1159,13 +1144,20 @@ function App() {
   const selectedDataPoints = selected
     ? [...(uploadedDataPoints[selected.id] ?? []), ...buildCustomerDataPoints(selected)].filter((item) => !item.title.startsWith('New email from ') && !(item.type === 'Emails' && item.source === 'Gmail'))
     : []
-  const selectedDataSources = selected ? [...buildDataSources(selected), ...(configuredSourceAdds[selected.id] ?? [])].filter((source) => !(hiddenConfiguredSources[selected.id] ?? []).includes(source.name)) : []
   const selectedUpcomingItems = selected ? [...(customUpcomingItems[selected.id] ?? []), ...buildUpcomingItems(selected)] : []
   const selectedProofAssets = selected ? buildProofAssets(selected) : []
   const libraryProofAssets = customers.flatMap(buildProofAssets)
-  const visibleLibraryProofAssets = libraryProofFilter === 'All' ? libraryProofAssets : libraryProofAssets.filter((asset) => asset.type === libraryProofFilter)
+  const visibleLibraryProofAssets = libraryProofAssets.filter((asset) =>
+    (libraryProofFilter === 'All' || asset.type === libraryProofFilter) &&
+    (libraryCustomerFilter === 'All' || asset.parentProof.sourceCustomer === libraryCustomerFilter)
+  )
+  const libraryCustomerOptions = ['All', ...Array.from(new Set(libraryProofAssets.map((asset) => asset.parentProof.sourceCustomer))).sort()]
+  const libraryProofTypeCards = (['Quote', 'Metric', 'Outcome', 'Objection', 'Sales snippet'] as ProofAsset['type'][]).map((type) => ({
+    type,
+    count: libraryProofAssets.filter((asset) => asset.type === type).length,
+    customers: new Set(libraryProofAssets.filter((asset) => asset.type === type).map((asset) => asset.parentProof.sourceCustomer)).size,
+  }))
   const libraryGeneralCollateral = [...customGeneralCollateral, ...buildGeneralCollateral(customers)]
-  const libraryProofGroups = buildLibraryProofGroups(libraryProofAssets, customers)
   const collateralRows = buildCollateralRows(customers, libraryGeneralCollateral)
   const collateralFilterOptions = buildCollateralFilterOptions(collateralRows)
   const visibleCollateralRows = collateralRows.filter((row) =>
@@ -1175,87 +1167,6 @@ function App() {
     (collateralStatusFilter === 'All' || row.asset.status === collateralStatusFilter) &&
     (collateralTypeFilter === 'All' || row.asset.type === collateralTypeFilter)
   )
-  const stats = useMemo(
-    () => ({
-      customers: customers.length,
-      interactions: customers.reduce((sum, customer) => sum + buildInteractionHistory(customer).length, 0),
-      proof: 64,
-      assets: 21,
-    }),
-    [customers],
-  )
-  const statusCounts = useMemo(
-    () => customerStatuses.map((status) => ({ status, count: customers.filter((customer) => customer.status === status).length })),
-    [customers],
-  )
-  const overview = useMemo(() => {
-    const parseValueK = (value: string) => {
-      const match = value.match(/\$(\d+(?:\.\d+)?)K/i)
-      return match ? parseFloat(match[1]) : 0
-    }
-    const activePipeline = customers.filter((customer) => ['Active Deal', 'At Risk'].includes(customer.status)).reduce((sum, customer) => sum + parseValueK(customer.value), 0)
-    const closedArr = customers.filter((customer) => ['Onboarding', 'Live', 'Expanding', 'Closed'].includes(customer.status)).reduce((sum, customer) => sum + parseValueK(customer.value), 0)
-    const closedWithDates = customers.filter((customer) => ['Onboarding', 'Live', 'Expanding', 'Closed'].includes(customer.status) && customer.startDate && customer.closeDate)
-    const avgCycle = closedWithDates.length
-      ? Math.round(
-          closedWithDates.reduce((sum, customer) => sum + (Date.parse(customer.closeDate) - Date.parse(customer.startDate)) / 86_400_000, 0) /
-            closedWithDates.length,
-        )
-      : 0
-    const stages: Stage[] = ['Discovery', 'Proposal Sent', 'Security Review', 'Negotiation', 'Closed Won', 'Expansion']
-    const byStage = stages.map((stage) => ({ stage, count: customers.filter((customer) => customer.stage === stage).length }))
-    const maxStage = Math.max(1, ...byStage.map((row) => row.count))
-    const industryCounts = customers.reduce<Record<string, number>>((accumulator, customer) => {
-      accumulator[customer.industry] = (accumulator[customer.industry] ?? 0) + 1
-      return accumulator
-    }, {})
-    const byIndustry = Object.entries(industryCounts).sort((a, b) => b[1] - a[1])
-    const byStatus: { status: CustomerStatus; count: number }[] = (['Active Deal', 'Onboarding', 'Live', 'Expanding', 'At Risk', 'Closed', 'Closed Lost'] as CustomerStatus[]).map((status) => ({
-      status,
-      count: customers.filter((customer) => customer.status === status).length,
-    }))
-    const recentSignals = customers
-      .filter((customer) => customer.interactions.length > 0)
-      .map((customer) => ({ customerId: customer.id, customerName: customer.name, ...customer.interactions[0] }))
-      .slice(0, 6)
-    const coverageGaps = customers.filter((customer) => ['Active Deal', 'At Risk'].includes(customer.status) && customer.proof.length === 0)
-    const objections = customers
-      .filter((customer) => customer.objection)
-      .map((customer) => ({ id: customer.id, customer: customer.name, status: customer.status, objection: customer.objection }))
-    const customersByIndustry = byIndustry.map(([industry]) => ({
-      industry,
-      customers: customers.filter((customer) => customer.industry === industry),
-    }))
-    const proofOpportunities = customers
-      .filter((customer) => customer.proofCount >= 5)
-      .sort((a, b) => b.proofCount - a.proofCount)
-      .slice(0, 4)
-      .map((customer) => ({
-        id: customer.id,
-        title: `${customer.name} has ${customer.proofCount} proof points ready to package`,
-        detail: `${customer.industry} · strongest for ${customer.objection.toLowerCase()} conversations.`,
-      }))
-    const segmentInsights = byIndustry.slice(0, 3).map(([industry, count]) => {
-      const segmentCustomers = customers.filter((customer) => customer.industry === industry)
-      const proofTotal = segmentCustomers.reduce((sum, customer) => sum + customer.proofCount, 0)
-      return {
-        industry,
-        count,
-        proofTotal,
-        detail: `${proofTotal} proof points across ${count} ${count === 1 ? 'customer' : 'customers'}.`,
-      }
-    })
-    const activationPlays = customers
-      .filter((customer) => ['Active Deal', 'At Risk'].includes(customer.status))
-      .slice(0, 4)
-      .map((customer) => ({
-        id: customer.id,
-        title: `Use proof for ${customer.name}`,
-        detail: `${customer.stage} · address "${customer.objection}" before the next touchpoint.`,
-      }))
-    return { activePipeline, closedArr, avgCycle, byStage, maxStage, byIndustry, byStatus, recentSignals, coverageGaps, objections, customersByIndustry, proofOpportunities, segmentInsights, activationPlays }
-  }, [customers])
-
   const urgencyActions = useMemo<UrgencyAction[]>(() => {
     const taken = new Set<string>()
     const out: UrgencyAction[] = []
@@ -1472,46 +1383,10 @@ function App() {
     return out
   }, [customers])
 
-  const urgencyByTier = useMemo(
-    () => ({
-      High: urgencyActions.filter((action) => action.tier === 'High'),
-      Medium: urgencyActions.filter((action) => action.tier === 'Medium'),
-      Low: urgencyActions.filter((action) => action.tier === 'Low'),
-    }),
-    [urgencyActions],
-  )
-  const dashboardMeetings = useMemo(
-    () => {
-      const slots = [
-        { date: 'May 12', time: '9:30 AM' },
-        { date: 'May 12', time: '2:00 PM' },
-        { date: 'May 13', time: '11:00 AM' },
-        { date: 'May 14', time: '3:30 PM' },
-      ]
-      const meetingRows = customers
-      .flatMap((customer) => [...(customUpcomingItems[customer.id] ?? []), ...buildUpcomingItems(customer)]
-        .filter((item) => item.type === 'Meeting')
-        .map((item) => ({ id: customer.id, customer: customer.name, title: item.title, due: item.due, source: item.source })))
-      const northbeamMeeting = meetingRows.find((meeting) => meeting.customer === 'Northbeam AI')
-      const withoutAcme = meetingRows.filter((meeting) => meeting.customer !== 'Acme Health')
-      const orderedMeetings = northbeamMeeting
-        ? [withoutAcme[0], northbeamMeeting, ...withoutAcme.filter((meeting) => meeting.id !== northbeamMeeting.id && meeting.id !== withoutAcme[0]?.id)].filter(Boolean)
-        : withoutAcme
-      return orderedMeetings
-      .slice(0, 4)
-      .map((meeting, index) => ({
-        ...meeting,
-        customer: meeting.customer === 'Northbeam AI' ? 'Northpoint AI - Dev Patel' : meeting.customer,
-        title: meeting.customer === 'Northbeam AI' && meeting.title === 'Negotiation prep' ? 'Retention Call' : meeting.title,
-        ...slots[index % slots.length],
-      }))
-    },
-    [customers, customUpcomingItems],
-  )
-  const dashboardCustomers = dashboardStatus === 'All' ? customers : customers.filter((customer) => customer.status === dashboardStatus)
-
-  const activeCount = customers.filter((customer) => ['Active Deal', 'At Risk'].includes(customer.status)).length
-  const closedCount = customers.length - activeCount
+  const activeCustomers = customers.filter((customer) => ['Active Deal', 'At Risk', 'Onboarding'].includes(customer.status))
+  const closedCustomers = customers.filter((customer) => !['Active Deal', 'At Risk', 'Onboarding'].includes(customer.status))
+  const rawDataCustomer = rawDataCustomerId ? customers.find((customer) => customer.id === rawDataCustomerId) ?? null : null
+  const rawDataCustomerPoints = rawDataCustomer ? [...(uploadedDataPoints[rawDataCustomer.id] ?? []), ...buildCustomerDataPoints(rawDataCustomer)] : []
 
   function openNewCustomer() {
     setDraft(emptyDraft)
@@ -1520,8 +1395,18 @@ function App() {
 
   function openCustomer(id: string) {
     setSelectedId(id)
-    setCustomerSubView('insights')
     setView('customerDetail')
+  }
+
+  function openCustomerFromKey(event: React.KeyboardEvent<HTMLElement>, id: string) {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
+      openCustomer(id)
+    }
+  }
+
+  function customerHomeView(customer: Customer | null): View {
+    return customer && ['Active Deal', 'At Risk', 'Onboarding'].includes(customer.status) ? 'activeDeals' : 'closedCustomers'
   }
 
   function createCustomer(event: React.FormEvent) {
@@ -1566,7 +1451,6 @@ function App() {
     setHiddenConfiguredSources((current) => ({ ...current, [id]: [] }))
     setDraft(emptyDraft)
     setSelectedId(id)
-    setCustomerSubView('insights')
     setView('customerDetail')
     setShowNewCustomer(false)
   }
@@ -1582,6 +1466,10 @@ function App() {
     setChatInput('')
     setChatThinking(false)
     setChatComplete(false)
+  }
+
+  function runAiAction(task: string) {
+    openChat(task)
   }
 
   function closeChat() {
@@ -1611,53 +1499,8 @@ function App() {
     setChatMessages((current) => [...current, { role: 'agent', text: `Marked "${chatTask}" complete. The asset is saved to your proof library.` }])
   }
 
-  function submitGeneralAgent() {
-    const text = generalAgentInput.trim()
-    if (!text || generalAgentThinking) return
-    setGeneralAgentInput('')
-    const activeDeals = customers.filter((customer) => ['Active Deal', 'At Risk'].includes(customer.status))
-    const topSegment = overview.byIndustry[0]?.[0] ?? 'your strongest segment'
-    const strongestProof = customers.slice().sort((a, b) => b.proofCount - a.proofCount)[0]
-    const turn = generalAgentMessages.filter((message) => message.role === 'user').length
-    setGeneralAgentMessages((current) => [...current, { role: 'user', text }])
-    setGeneralAgentThinking(true)
-    window.setTimeout(() => {
-      setGeneralAgentThinking(false)
-      setGeneralAgentMessages((current) => [
-        ...current,
-        buildGeneralAgentReply(turn, text, {
-          customers: customers.length,
-          interactions: stats.interactions,
-          proof: stats.proof,
-          activeDeals: activeDeals.length,
-          topSegment,
-          strongestCustomer: strongestProof?.name ?? 'the strongest closed customer',
-        }),
-      ])
-    }, 1100 + turn * 250)
-  }
-
-  function startNewGeneralChat() {
-    if (generalAgentMessages.length > 0) {
-      const firstUserMessage = generalAgentMessages.find((message) => message.role === 'user')?.text
-      setGeneralAgentHistory((current) => [firstUserMessage || 'Untitled chat', ...current].slice(0, 6))
-    }
-    setGeneralAgentMessages([])
-    setGeneralAgentInput('')
-    setGeneralAgentThinking(false)
-    setGeneralAgentView('current')
-  }
-
-  function submitCustomerAgent() {
-    const text = customerAgentInput.trim()
-    if (!text || !selected || customerAgentThinking) return
-    askCustomerAgent(text)
-    setCustomerAgentInput('')
-  }
-
   function askCustomerAgent(text: string) {
     if (!selected || customerAgentThinking) return
-    setCustomerAgentView('current')
     const customerDataCount = selectedDataPoints.length
     const timelineCount = selectedInteractions.length
     const proofAssetCount = selectedProofAssets.length
@@ -1683,17 +1526,6 @@ function App() {
         },
       ])
     }, 1200 + turn * 250)
-  }
-
-  function startNewCustomerAgentChat() {
-    if (customerAgentMessages.length > 0) {
-      const firstUserMessage = customerAgentMessages.find((message) => message.role === 'user')?.text
-      setCustomerAgentHistory((current) => [firstUserMessage || 'Untitled chat', ...current].slice(0, 6))
-    }
-    setCustomerAgentMessages([])
-    setCustomerAgentInput('')
-    setCustomerAgentThinking(false)
-    setCustomerAgentView('current')
   }
 
   function submitCollateralAgent() {
@@ -1736,6 +1568,10 @@ function App() {
     setSelectedDataPoint(null)
   }
 
+  function closeRawDataCustomer() {
+    setRawDataCustomerId(null)
+  }
+
   function addCaptureSource() {
     if (!selected) return
     const source = buildConfiguredCaptureSource(selected, captureSourceType, captureSetupDraft)
@@ -1751,16 +1587,11 @@ function App() {
     setShowSourceSetup(false)
   }
 
-  function removeCaptureSource(name: string) {
-    if (!selected) return
-    setConfiguredSourceAdds((current) => ({
-      ...current,
-      [selected.id]: (current[selected.id] ?? []).filter((source) => source.name !== name),
-    }))
-    setHiddenConfiguredSources((current) => ({
-      ...current,
-      [selected.id]: [...new Set([...(current[selected.id] ?? []), name])],
-    }))
+  function openIntegrationSetup(customerId: string) {
+    setSelectedId(customerId)
+    setCaptureSourceType('Email')
+    setCaptureSetupDraft(defaultCaptureSetup)
+    setShowSourceSetup(true)
   }
 
   function uploadCustomerData(event: React.FormEvent) {
@@ -1815,7 +1646,6 @@ function App() {
             : customer,
         ),
       )
-      setDataTab(uploadedPoints[0]?.type ?? uploadDraft.type)
       setUploadParsing(false)
       setShowCustomerUpload(false)
       setUploadDraft(defaultUploadDraft)
@@ -1823,111 +1653,8 @@ function App() {
     }, 900)
   }
 
-  function simulateIncomingEmail() {
-    if (!selected || incomingEmailParsing) return
-    setIncomingEmailParsing(true)
-    window.setTimeout(() => {
-      const contact = selected.contacts[0]?.split(',')[0] ?? 'Main contact'
-      const domain = customerDomain(selected)
-      const emailPoint: CustomerDataPoint = {
-        type: 'Emails',
-        title: `New email from ${contact}`,
-        date: 'Just now',
-        source: `Email capture · ${domain}`,
-        status: 'Proof detected',
-        signal: `Matched sender domain to ${domain}, checked relevance, and routed the email into ${selected.name}.`,
-        detail: `${contact} asked for proof related to ${selected.objection.toLowerCase()} and shared language that can be used in follow-up.`,
-        emailThread: buildEmailThread(selected, 'proof-request'),
-      }
-      const emailUpcoming: UpcomingItem = {
-        type: 'Email',
-        title: `Respond to ${contact}`,
-        due: 'Due today',
-        source: 'Email capture',
-        summary: `A relevant email from ${domain} was captured and needs a response using proof from this customer and the broader library.`,
-        context: [
-          `Sender domain matched ${domain}.`,
-          `Email mentions ${selected.objection.toLowerCase()} and asks for a credible customer example.`,
-          'Dalil parsed the thread, added it to Data, and created this follow-up task.',
-        ],
-        recommendedAction: `Draft a reply to ${contact} using proof that addresses ${selected.objection}.`,
-      }
-      setUploadedDataPoints((current) => ({
-        ...current,
-        [selected.id]: [emailPoint, ...(current[selected.id] ?? [])],
-      }))
-      setCustomUpcomingItems((current) => ({
-        ...current,
-        [selected.id]: [emailUpcoming, ...(current[selected.id] ?? [])],
-      }))
-      setCustomers((current) =>
-        current.map((customer) =>
-          customer.id === selected.id
-            ? {
-                ...customer,
-                lastActivity: 'Email captured just now',
-                interactionCount: customer.interactionCount + 1,
-                proofCount: customer.proofCount + 5,
-                interactions: [
-                  {
-                    type: 'Email',
-                    title: `Email captured from ${customerDomain(customer)}`,
-                    date: 'Just now',
-                    summary: `Relevant message from ${contact} was matched by domain, parsed, and routed into the customer profile.`,
-                    proofDetected: true,
-                  },
-                  ...customer.interactions,
-                ],
-                proof: [
-                  makeDemoProof(customer, {
-                    id: `email-${customer.id}-${Date.now()}`,
-                    claim: `${customer.name} has a fresh proof request that can be answered with source-linked customer evidence.`,
-                    metric: 'New stakeholder email matched to CRM context and approval status',
-                    quote: 'If the example includes the original source and approval status, I can use it with Dev before the retention call.',
-                    sourceInteraction: `New email from ${contact}`,
-                    bestFor: `follow-up emails about ${customer.objection.toLowerCase()}`,
-                  }),
-                  ...customer.proof,
-                ],
-              }
-            : customer,
-        ),
-      )
-      setDataTab('Emails')
-      setIncomingEmailParsing(false)
-    }, 850)
-  }
-
-  function simulateCalendarNotice() {
-    if (!selected || calendarNoticeParsing) return
-    setCalendarNoticeParsing(true)
-    window.setTimeout(() => {
-      const contact = selected.contacts[0]?.split(',')[0] ?? 'Main contact'
-      const notice: UpcomingItem = {
-        type: 'Meeting',
-        title: `${contact} meeting brief ready`,
-        due: 'In 30 minutes',
-        source: 'Calendar connection',
-        summary: `Dalil detected an upcoming meeting with ${selected.name} and prepared the context the team should use before joining.`,
-        context: [
-          `Calendar attendees include ${contact} and match ${selected.website}.`,
-          `Current stage: ${selected.stage}.`,
-          `Main concern to address: ${selected.objection}.`,
-          `Recommended proof: use the strongest similar customer story before discussing next steps.`,
-        ],
-        recommendedAction: `Open a pre-meeting brief for ${selected.name} focused on ${selected.objection}.`,
-      }
-      setCustomUpcomingItems((current) => ({
-        ...current,
-        [selected.id]: [notice, ...(current[selected.id] ?? [])],
-      }))
-      setSelectedUpcomingItem(notice)
-      setCalendarNoticeParsing(false)
-    }, 700)
-  }
-
   function openCollateralSetup() {
-    setCollateralDraft(defaultCollateralDraft)
+    setCollateralDraft(selected?.id === 'nvidia' ? nvidiaPitchDeckDraft : defaultCollateralDraft)
     setShowCollateralSetup(true)
   }
 
@@ -1937,21 +1664,26 @@ function App() {
     const audience = collateralDraft.audience.trim() || selected.contacts[0] || 'Sales prospect'
     const proof = collateralDraft.proof.trim() || selected.objection || 'Dalil can turn customer proof into credible sales collateral.'
     const format = collateralDraft.format.trim() || 'Case study draft'
+    const isNvidiaDeck = selected.id === 'nvidia' && /slide|deck/i.test(format)
     setCollateralGenerating(true)
     window.setTimeout(() => {
       const referenceCustomer = customers.find((customer) => customer.id !== selected.id && customer.proof.length > 0)
       const newCollateral: Collateral = {
-        title: `${selected.name} ${format}`,
+        title: isNvidiaDeck ? 'Alma for NVIDIA pitch deck' : `${selected.name} ${format}`,
         type: format,
         status: 'Internal Only',
-        summary: `Audience: ${audience}. Proof: ${proof}. Drafted from ${selected.name}'s proof profile and strengthened with similar proof from ${referenceCustomer?.name ?? 'previous customers'} around ${selected.objection.toLowerCase()}.`,
+        summary: isNvidiaDeck
+          ? `Audience: ${audience}. Proof: ${proof}. Output: HTML slide deck for Alma to send to NVIDIA.`
+          : `Audience: ${audience}. Proof: ${proof}. Drafted from ${selected.name}'s proof profile and strengthened with similar proof from ${referenceCustomer?.name ?? 'previous customers'} around ${selected.objection.toLowerCase()}.`,
         goal: `Create ${format} for ${audience}`,
         focus: proof,
-        referenceProof: referenceCustomer ? `${referenceCustomer.name}: ${referenceCustomer.proof[0]?.metric ?? 'relevant proof point'}` : 'Previous customer proof library',
-        communicates: inferCommunication(`${proof} ${selected.objection}`, selected),
-        metric: inferMetric(`${proof} ${selected.proof[0]?.metric ?? ''}`, inferCommunication(`${proof} ${selected.objection}`, selected)),
-        audience,
-        channel: inferChannel(format, format),
+        referenceProof: isNvidiaDeck
+          ? 'NVIDIA: source-traceable proof workflow, controlled evidence, and critical infrastructure trust concerns'
+          : referenceCustomer ? `${referenceCustomer.name}: ${referenceCustomer.proof[0]?.metric ?? 'relevant proof point'}` : 'Previous customer proof library',
+        communicates: isNvidiaDeck ? 'Incumbent trust' : inferCommunication(`${proof} ${selected.objection}`, selected),
+        metric: isNvidiaDeck ? 'Risk reduction' : inferMetric(`${proof} ${selected.proof[0]?.metric ?? ''}`, inferCommunication(`${proof} ${selected.objection}`, selected)),
+        audience: isNvidiaDeck ? 'NVIDIA executive buying committee' : audience,
+        channel: isNvidiaDeck ? 'Sales deck' : inferChannel(format, format),
       }
       setCustomers((current) =>
         current.map((customer) =>
@@ -2008,39 +1740,39 @@ function App() {
           </div>
         </div>
         <nav>
-          <NavButton active={view === 'dashboard'} icon={<LayoutDashboard size={18} />} label="Dashboard" onClick={() => setView('dashboard')} />
-          <NavButton active={view === 'customerInsights'} icon={<HeartPulse size={18} />} label="Company Health" onClick={() => { setSelectedId(null); setView('customerInsights') }} />
-          <button className={`sidebar-collapse ${view === 'customerDetail' ? 'active' : ''}`} onClick={() => setCustomerListOpen((open) => !open)}>
-            <Users size={18} />
-            <span className="nav-label">Customers</span>
-            <span className="customer-count">{customers.length}</span>
-            <ChevronDown className={customerListOpen ? 'open' : ''} size={14} />
+          <div className="nav-section">Deals</div>
+          <NavButton active={view === 'activeDeals' || (view === 'customerDetail' && selected ? ['Active Deal', 'At Risk', 'Onboarding'].includes(selected.status) : false)} icon={<LayoutDashboard size={18} />} label="Active" onClick={() => { setSelectedId(null); setView('activeDeals') }} />
+          <NavButton active={view === 'closedCustomers' || (view === 'customerDetail' && selected ? !['Active Deal', 'At Risk', 'Onboarding'].includes(selected.status) : false)} icon={<CheckCircle2 size={18} />} label="Closed" onClick={() => { setSelectedId(null); setView('closedCustomers') }} />
+          <div className="nav-section">Evidence</div>
+          <button className={`sidebar-collapse ${view === 'collateralGenerate' || view === 'collateralPublished' ? 'active' : ''}`} onClick={() => setCollateralNavOpen((open) => !open)}>
+            <FileStack size={18} />
+            <span className="nav-label">Collateral</span>
+            <ChevronDown className={collateralNavOpen || view === 'collateralGenerate' || view === 'collateralPublished' ? 'open' : ''} size={14} />
           </button>
-          {customerListOpen && (
+          {(collateralNavOpen || view === 'collateralGenerate' || view === 'collateralPublished') && (
             <div className="sidebar-subnav">
-              {customers.map((customer) => (
-                <button className={view === 'customerDetail' && selectedId === customer.id ? 'active' : ''} key={customer.id} onClick={() => openCustomer(customer.id)}>
-                  {customer.name}
-                </button>
-              ))}
+              <button className={view === 'collateralGenerate' ? 'active' : ''} onClick={() => setView('collateralGenerate')}>Generate</button>
+              <button className={view === 'collateralPublished' ? 'active' : ''} onClick={() => setView('collateralPublished')}>Published</button>
             </div>
           )}
           <NavButton active={view === 'library'} icon={<Library size={18} />} label="Proof Library" onClick={() => setView('library')} />
-          <NavButton active={view === 'collateral'} icon={<FileStack size={18} />} label="Collateral" onClick={() => setView('collateral')} />
+          <div className="nav-section">Data</div>
+          <NavButton active={view === 'integrations'} icon={<Users size={18} />} label="Integrations" onClick={() => { setSelectedId(null); setView('integrations') }} />
+          <NavButton active={view === 'rawData'} icon={<FileText size={18} />} label="Raw data" onClick={() => { setSelectedId(null); setView('rawData') }} />
         </nav>
       </aside>
 
       <section className="workspace">
         <header className="topbar">
           <div>
-            <h1 className={view === 'dashboard' ? 'dashboard-title' : ''}>{view === 'dashboard' ? 'Dashboard' : view === 'customerInsights' ? 'Company Health' : view === 'customerDetail' ? selected?.name ?? 'Customer' : view === 'collateral' ? 'Collateral' : 'Company Proof Memory'}</h1>
+            <h1>{view === 'activeDeals' ? 'Active' : view === 'closedCustomers' ? 'Closed' : view === 'customerDetail' ? selected?.name ?? 'Customer' : view === 'integrations' ? 'Integrations' : view === 'rawData' ? 'Raw data' : view === 'collateralGenerate' ? 'Generate collateral' : view === 'collateralPublished' ? 'Published collateral' : 'Proof library'}</h1>
           </div>
           <div className="topbar-actions">
-            {view !== 'dashboard' && <button className="search-button"><Search size={17} /> Search proof</button>}
+            {(view === 'activeDeals' || view === 'library') && <button className="search-button"><Search size={17} /> Search proof</button>}
             <button className="theme-toggle" onClick={toggleTheme} aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
               {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
             </button>
-            <button className="primary" onClick={openNewCustomer}><Plus size={18} /> New customer</button>
+            {view === 'activeDeals' && <button className="primary" onClick={openNewCustomer}><Plus size={18} /> New customer</button>}
             <button type="button" className="topbar-user" aria-label={`Account menu for ${currentUser.login}`}>
               <span className="topbar-user-avatar">{currentUser.initial}</span>
               <strong className="topbar-user-login">{currentUser.login}</strong>
@@ -2049,614 +1781,329 @@ function App() {
           </div>
         </header>
 
-        <section className={`page ${view === 'dashboard' ? 'dashboard-page' : ''}`}>
-          {view === 'dashboard' && (
-            <div className="dashboard-content">
-              <section className="dashboard-main">
-                <section className="dashboard-section dashboard-section-primary">
-                  <header className="dashboard-section-head">
-                    <div>
-                      <h2>Priorities</h2>
-                    </div>
-                  </header>
-                  {urgencyActions.length === 0 ? (
-                    <div className="urgency-empty-state">
-                      <div className="urgency-empty-glyph" aria-hidden>د</div>
-                      <p className="urgency-empty-headline">You're clear.</p>
-                      <p className="urgency-empty-detail">Dalil will surface the next move when a customer signal lands.</p>
-                    </div>
-                  ) : (
-                    <div className="urgency-grid">
-                      {urgencyTiers.map((tier) => {
-                        const rows = urgencyByTier[tier]
-                        const visible = rows.slice(0, 4)
-                        const extra = rows.length - visible.length
-                        return (
-                          <section className={`urgency-card urgency-${tier.toLowerCase()}`} key={tier}>
-                            <header className="urgency-card-head">
-                              <h2>{tier}</h2>
-                              <span className="urgency-count">{rows.length}</span>
-                            </header>
-                            {rows.length === 0 ? (
-                              <p className="urgency-empty">Nothing here right now.</p>
-                            ) : (
-                              <ul className="urgency-list">
-                                {visible.map((row) => (
-                                  <li key={`${tier}-${row.id}-${row.tag}`}>
-                                    <button type="button" className="urgency-row" onClick={() => openCustomer(row.id)} title={row.detail}>
-                                      <span className="action-tag">{row.tag}</span>
-                                      <span className="urgency-body">
-                                        <strong>{row.customer}</strong>
-                                        <span className="urgency-action-title">{row.title}</span>
-                                      </span>
-                                    </button>
-                                  </li>
-                                ))}
-                                {extra > 0 && <li className="urgency-more">+{extra} more</li>}
-                              </ul>
-                            )}
-                          </section>
-                        )
-                      })}
-                    </div>
-                  )}
-                </section>
-
-                <section className="dashboard-section dashboard-section-secondary">
-                  <header className="dashboard-section-head">
-                    <div>
-                      <span className="eyebrow">Portfolio overview</span>
-                      <h2>Your book</h2>
-                    </div>
-                    <span className="dashboard-section-meta">{customers.length} {customers.length === 1 ? 'account' : 'accounts'}</span>
-                  </header>
-
-                  <div className="summary-strip">
-                    <Stat label="Total customers" value={stats.customers} icon={<Building2 size={18} />} />
-                    <Stat label="Proof points" value={stats.proof} icon={<Sparkles size={18} />} />
-                    <Stat label="Sales collateral" value={stats.assets} icon={<FileStack size={18} />} />
-                  </div>
-
-                  <div className="status-filters" aria-label="Filter customers by status">
-                    <button className={dashboardStatus === 'All' ? 'active' : ''} onClick={() => setDashboardStatus('All')}>
-                      All <span>{customers.length}</span>
-                    </button>
-                    {statusCounts.map(({ status, count }) => (
-                      <button key={status} className={dashboardStatus === status ? 'active' : ''} onClick={() => setDashboardStatus(status)}>
-                        {status} <span>{count}</span>
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="customer-grid">
-                    {dashboardCustomers.map((customer) => (
-                      <button className="customer-card" key={customer.id} onClick={() => openCustomer(customer.id)}>
-                        <div className="card-top">
-                          <div className="logo">{customer.logo}</div>
-                          <span className={`badge ${statusClass(customer.status)}`}>{customer.status}</span>
-                        </div>
+        <section className="page">
+          {view === 'activeDeals' && (
+            <div className="wireframe-page">
+              <div className="wire-card-grid">
+                {activeCustomers.map((customer) => {
+                  const nextMeeting = [...(customUpcomingItems[customer.id] ?? []), ...buildUpcomingItems(customer)].find((item) => item.type === 'Meeting')
+                  const action = urgencyActions.find((item) => item.id === customer.id)
+                  return (
+                    <article
+                      className="wire-deal-card"
+                      key={customer.id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => openCustomer(customer.id)}
+                      onKeyDown={(event) => openCustomerFromKey(event, customer.id)}
+                    >
+                      <div className="wire-card-top">
                         <div>
-                          <h3>{customer.name}</h3>
-                          <p>{customer.industry}</p>
+                          <strong>{customer.name}</strong>
+                          <span>{customer.industry} · {customer.size}</span>
                         </div>
-                        <div className="card-meta">
-                          <span>{['Active Deal', 'At Risk'].includes(customer.status) ? customer.stage : `${customer.health} health`}</span>
-                          <div className="card-stats">
-                            <span>{buildInteractionHistory(customer).length} interactions</span>
-                            <span>{customer.proofCount} proof</span>
-                          </div>
-                        </div>
-                        <div className="last-activity"><Clock3 size={15} /> {customer.lastActivity}</div>
-                      </button>
-                    ))}
-                  </div>
-                </section>
-              </section>
-
-              <aside className="dashboard-side">
-                <section className="dashboard-meeting-calendar" aria-label="Meeting calendar">
-                  <div className="dashboard-meeting-head">
-                    <strong>Meeting calendar</strong>
-                    <span>{dashboardMeetings.length}</span>
-                  </div>
-                  {dashboardMeetings.length === 0 ? (
-                    <p>No customer meetings detected.</p>
-                  ) : (
-                    <div className="dashboard-meeting-list">
-                      {dashboardMeetings.map((meeting) => (
-                        <button type="button" key={`${meeting.id}-${meeting.title}-${meeting.date}-${meeting.time}`} onClick={() => openCustomer(meeting.id)}>
-                          <span>{meeting.date} · {meeting.time}</span>
-                          <strong>{meeting.customer}</strong>
-                          <em>{meeting.title}</em>
+                        <em className={`wire-stage ${statusClass(customer.status)}`}>{customer.status === 'At Risk' ? 'Needs attention' : customer.stage}</em>
+                      </div>
+                      <div className="wire-row"><Building2 size={14} /> <span>{customer.value || 'Value not set'} · {customer.competitor || 'No competitor logged'}</span></div>
+                      <div className="wire-row"><Clock3 size={14} /> <span>Last: <strong>{customer.lastActivity}</strong></span></div>
+                      <div className="wire-row"><MessageSquareText size={14} /> <span>Next: <strong>{nextMeeting ? `${nextMeeting.title} · ${nextMeeting.due}` : 'No meeting detected'}</strong></span></div>
+                      <div className="wire-action-needed">{action?.title ?? `Address "${customer.objection}" before the next touchpoint.`}</div>
+                      <div className="wire-ai-flag">
+                        <span><Sparkles size={13} /> Dalil active · {customer.proofCount} proof signals · brief ready</span>
+                        <button type="button" className="ai-inline" title="Generate brief" onClick={(event) => { event.stopPropagation(); runAiAction(`Generate a brief for ${customer.name} focused on ${customer.objection}`) }}>
+                          <Sparkles size={14} />
                         </button>
-                      ))}
-                    </div>
-                  )}
-                </section>
-
-                <section className="dashboard-agent">
-                  <div className="agent-topbar">
-                    <button type="button" className={generalAgentView === 'current' ? 'active' : ''} onClick={() => setGeneralAgentView('current')}>
-                      <strong>Current</strong>
-                      <span>{generalAgentMessages.length ? `${generalAgentMessages.length} messages` : 'No active chat'}</span>
-                    </button>
-                    <button type="button" className={generalAgentView === 'history' ? 'active' : ''} onClick={() => setGeneralAgentView('history')}>
-                      History
-                    </button>
-                    <button type="button" className="secondary" onClick={startNewGeneralChat}>
-                      <Plus size={15} /> New chat
-                    </button>
-                  </div>
-
-                  <div className="dashboard-agent-chat">
-                    {generalAgentView === 'history' ? (
-                      generalAgentHistory.length === 0 ? (
-                        <p className="empty-chat">No saved chats yet.</p>
-                      ) : (
-                        <div className="agent-history-list">
-                          {generalAgentHistory.map((item, index) => (
-                            <button type="button" key={`${item}-${index}`}>{item}</button>
-                          ))}
-                        </div>
-                      )
-                    ) : generalAgentMessages.length === 0 ? (
-                      <p className="empty-chat">Ask Dalil to assist with priortizing and deal details.</p>
-                    ) : (
-                      <>
-                        {generalAgentMessages.map((message, index) => (
-                          <div className={`dashboard-agent-msg ${message.role}`} key={index}>
-                            <p>{message.text}</p>
-                            {message.attachment && (
-                              <a className="chat-attachment" href={message.attachment.href} target="_blank" rel="noreferrer">
-                                <FileText size={15} />
-                                {message.attachment.label}
-                              </a>
-                            )}
-                          </div>
-                        ))}
-                        {generalAgentThinking && <AgentThinking />}
-                      </>
-                    )}
-                  </div>
-
-                  <form className="dashboard-agent-input" onSubmit={(event) => { event.preventDefault(); submitGeneralAgent() }}>
-                    <input value={generalAgentInput} onChange={(event) => setGeneralAgentInput(event.target.value)} placeholder="Ask Dalil..." disabled={generalAgentThinking} />
-                    <button type="submit" aria-label="Send message" disabled={generalAgentThinking || !generalAgentInput.trim()}><Send size={15} /></button>
-                  </form>
-                </section>
-              </aside>
+                      </div>
+                    </article>
+                  )
+                })}
+              </div>
             </div>
           )}
 
-          {view === 'customerInsights' && (
-            <>
-              <div className="insights-main">
-                <section className="dashboard-hero">
-                  <div>
-                    <span className="eyebrow">Customer pulse</span>
-                    <h2>Where your portfolio stands today.</h2>
-                    <p>Aggregate signals across every customer relationship — pipeline, momentum, gaps, and objections in one place. Click any row to drill into a customer.</p>
-                  </div>
-                  <div className="overview-kpis">
-                    <article className="kpi">
-                      <span>Active pipeline</span>
-                      <strong>${overview.activePipeline}K</strong>
-                      <em>across {activeCount} {activeCount === 1 ? 'account' : 'accounts'}</em>
-                    </article>
-                    <article className="kpi">
-                      <span>Closed ARR</span>
-                      <strong>${overview.closedArr}K</strong>
-                      <em>{closedCount} {closedCount === 1 ? 'win' : 'wins'}</em>
-                    </article>
-                    <article className="kpi">
-                      <span>Avg deal cycle</span>
-                      <strong>{overview.avgCycle} days</strong>
-                      <em>start → close</em>
-                    </article>
-                  </div>
-                </section>
-
-                <Section title="Pipeline by stage">
-                  <div className="funnel">
-                    {overview.byStage.map(({ stage, count }) => (
-                      <div className="funnel-row" key={stage}>
-                        <span>{stage}</span>
-                        <div className="funnel-bar"><span style={{ width: `${(count / overview.maxStage) * 100}%` }} /></div>
-                        <strong>{count}</strong>
-                      </div>
-                    ))}
-                  </div>
-                </Section>
-
-                <div className="overview-row">
-                  <Section title="Industry mix">
-                    <div className="breakdown">
-                      {overview.byIndustry.map(([industry, count]) => (
-                        <div className="breakdown-row" key={industry}>
-                          <span>{industry}</span>
-                          <div className="breakdown-bar"><span style={{ width: `${(count / customers.length) * 100}%` }} /></div>
-                          <strong>{count}</strong>
-                        </div>
-                      ))}
-                    </div>
-                  </Section>
-
-                  <Section title="Status mix">
-                    <div className="breakdown">
-                      {overview.byStatus.map(({ status, count }) => (
-                        <div className={`breakdown-row status-${statusClass(status)}`} key={status}>
-                          <span>{status}</span>
-                          <div className="breakdown-bar"><span style={{ width: `${(count / Math.max(1, customers.length)) * 100}%` }} /></div>
-                          <strong>{count}</strong>
-                        </div>
-                      ))}
-                    </div>
-                  </Section>
-                </div>
-
-              <Section title="Recent customer signals" action={<Activity size={18} />}>
-                {overview.recentSignals.length === 0 ? (
-                  <div className="empty-state"><Sparkles size={22} /><p>No interactions logged yet. Add customers and capture signals to see them here.</p></div>
-                ) : (
-                  <div className="signal-list">
-                    {overview.recentSignals.map((signal) => (
-                      <button className="signal-item" key={signal.customerId + signal.title} onClick={() => openCustomer(signal.customerId)}>
-                        <div className="timeline-icon">{iconFor(signal.type)}</div>
+          {view === 'closedCustomers' && (
+            <div className="wireframe-page">
+              <div className="wire-card-grid">
+                {closedCustomers.map((customer) => {
+                  const proofStrength = Math.min(98, 58 + customer.proofCount * 3)
+                  const primaryProof = customer.proof[0]
+                  return (
+                    <article
+                      className="wire-deal-card wire-closed-card"
+                      key={customer.id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => openCustomer(customer.id)}
+                      onKeyDown={(event) => openCustomerFromKey(event, customer.id)}
+                    >
+                      <div className="wire-card-top">
                         <div>
-                          <strong>{signal.customerName}</strong>
-                          <span>{signal.title} · {signal.type} · {signal.date}</span>
-                          <p>{signal.summary}</p>
+                          <strong>{customer.name}</strong>
+                          <span>{customer.industry} · {customer.size}</span>
                         </div>
-                        {signal.proofDetected && <em>Proof detected</em>}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </Section>
-
-              <div className="overview-row">
-                <Section title="Coverage gaps" action={<ShieldCheck size={18} />}>
-                  {overview.coverageGaps.length === 0 ? (
-                    <div className="empty-state"><CheckCircle2 size={22} /><p>Every active prospect has at least one proof point attached.</p></div>
-                  ) : (
-                    <div className="gap-list">
-                      {overview.coverageGaps.map((customer) => (
-                        <button className="gap-row" key={customer.id} onClick={() => openCustomer(customer.id)}>
-                          <div>
-                            <strong>{customer.name}</strong>
-                            <span>{customer.stage} · {customer.industry}</span>
-                          </div>
-                          <em>{customer.objection || 'No objection captured'}</em>
-                          <ChevronRight size={16} />
+                        <em className="wire-stage closed">{customer.status}</em>
+                      </div>
+                      <div className="wire-row"><Building2 size={14} /> <span>Closed value: <strong>{customer.value || 'Not set'}</strong></span></div>
+                      <div className="wire-row"><Sparkles size={14} /> <span>Key proof: <strong>{primaryProof?.metric ?? `${customer.proofCount} proof points captured`}</strong></span></div>
+                      <div className="wire-proof-strength">
+                        <span>Proof strength</span>
+                        <div><i style={{ width: `${proofStrength}%` }} /></div>
+                        <strong>{proofStrength}%</strong>
+                      </div>
+                      <div className="wire-chip-row">
+                        {customer.collateral.slice(0, 3).map((asset) => <span key={asset.title}>{asset.type}</span>)}
+                        {customer.collateral.length === 0 && <span>Collateral gap</span>}
+                        <span>{customer.proofCount} proof</span>
+                      </div>
+                      <div className="wire-ai-flag">
+                        <span><Sparkles size={13} /> Package proof into reusable collateral</span>
+                        <button type="button" className="ai-inline" title="Package proof" onClick={(event) => { event.stopPropagation(); runAiAction(`Package ${customer.name} proof into a reusable sales asset`) }}>
+                          <Sparkles size={14} />
                         </button>
-                      ))}
-                    </div>
-                  )}
-                </Section>
-
-                <Section title="Objections you're hearing" action={<MessageSquareText size={18} />}>
-                  <div className="objection-list">
-                    {overview.objections.map((row) => (
-                      <button className="objection-row" key={row.id} onClick={() => openCustomer(row.id)}>
-                        <strong>"{row.objection}"</strong>
-                        <span>{row.customer} · {row.status}</span>
-                      </button>
-                    ))}
-                  </div>
-                </Section>
+                      </div>
+                    </article>
+                  )
+                })}
               </div>
-
-              <Section title="Portfolio intelligence" action={<Sparkles size={18} />}>
-                <div className="portfolio-intelligence-grid">
-                  <div className="insight-stack">
-                    <h3>Strongest segments</h3>
-                    {overview.segmentInsights.map((segment) => (
-                      <article className="portfolio-insight-card" key={segment.industry}>
-                        <strong>{segment.industry}</strong>
-                        <p>{segment.detail}</p>
-                        <em>{segment.count} accounts</em>
-                      </article>
-                    ))}
-                  </div>
-                  <div className="insight-stack">
-                    <h3>Proof packaging opportunities</h3>
-                    {overview.proofOpportunities.map((item) => (
-                      <button className="portfolio-insight-card clickable" key={item.id} onClick={() => openCustomer(item.id)}>
-                        <strong>{item.title}</strong>
-                        <p>{item.detail}</p>
-                        <em>Package into collateral</em>
-                      </button>
-                    ))}
-                  </div>
-                  <div className="insight-stack">
-                    <h3>Activation plays</h3>
-                    {overview.activationPlays.map((item) => (
-                      <button className="portfolio-insight-card clickable" key={item.id} onClick={() => openCustomer(item.id)}>
-                        <strong>{item.title}</strong>
-                        <p>{item.detail}</p>
-                        <em>Prep proof for deal</em>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </Section>
-              </div>
-            </>
+            </div>
           )}
 
           {view === 'customerDetail' && selected && (
-            <div className="customer-layout">
-              <button className="back-link customer-back-link" onClick={() => { setSelectedId(null); setView('customerInsights') }}>
-                <ChevronLeft size={16} /> Company Health
+            <div className="wire-detail-page">
+              <button className="back-link customer-back-link" onClick={() => { const home = customerHomeView(selected); setSelectedId(null); setView(home) }}>
+                <ChevronLeft size={16} /> {customerHomeView(selected) === 'activeDeals' ? 'Active' : 'Closed'}
               </button>
-              <div className="customer-tabs" aria-label="Customer sections">
-                <button className={customerSubView === 'insights' ? 'active' : ''} onClick={() => setCustomerSubView('insights')}>Customer Insights</button>
-                <button className={customerSubView === 'proofs' ? 'active' : ''} onClick={() => setCustomerSubView('proofs')}>Proofs & Collateral</button>
-              </div>
-              <div className="main-column">
-                {customerSubView === 'insights' ? (
-                  <>
-                    <Section title="Summary">
-                      <p className="journey-summary">{customerJourneySummary(selected)}</p>
-                    </Section>
 
-                    <Section title="Overview" action={<span className={`badge ${statusClass(selected.status)}`}>{selected.status}</span>}>
-                      <div className="overview-grid">
-                        <Info label="Industry" value={selected.industry} />
-                        <Info label="Size" value={selected.size} />
-                        <Info label="Website" value={selected.website} />
-                        <Info label="Main contacts" value={selected.contacts.join(' · ')} />
-                        <Info label="Stage" value={selected.stage} />
-                        <Info label="Value" value={selected.value} />
-                        <Info label="Start date" value={selected.startDate} />
-                      </div>
-                    </Section>
-
-                    <Section
-                  title="Interactions Timeline"
-                  action={
-                    <div className="segmented-control" aria-label="Timeline view">
-                      <button className={timelineView === 'condensed' ? 'active' : ''} onClick={() => setTimelineView('condensed')}>Condensed</button>
-                      <button className={timelineView === 'comprehensive' ? 'active' : ''} onClick={() => setTimelineView('comprehensive')}>Comprehensive</button>
-                    </div>
-                  }
-                    >
-                  <div className={`timeline timeline-${timelineView}`}>
-                    {selectedTimelineItems.map((item) => (
-                      <article className="timeline-item" key={`${item.title}-${item.date}`}>
-                        <div className="timeline-icon">{iconFor(item.type)}</div>
-                        <div>
-                          <strong>{item.title}</strong>
-                          <span>{item.type} · {item.date}</span>
-                          <p>{item.summary}</p>
-                        </div>
-                        {item.proofDetected && <em>Potential proof detected</em>}
-                      </article>
-                    ))}
-                  </div>
-                    </Section>
-
-                    <Section
-                  title="Integrations"
-                  action={
-                    <div className="inline-actions">
-                      <button className="secondary" onClick={simulateIncomingEmail} disabled={incomingEmailParsing}>
-                        <Mail size={16} /> {incomingEmailParsing ? 'Parsing...' : 'Simulate email'}
-                      </button>
-                      <button className="secondary" onClick={() => setShowSourceSetup(true)}><Plus size={16} /> Add source</button>
-                    </div>
-                  }
-                    >
-                  <div className="capture-source-list">
-                    {selectedDataSources.map((source) => (
-                      <article className="capture-source-card" key={source.name}>
-                        <div className="capture-source-main">
-                          <span className={`source-dot source-${source.status.toLowerCase()}`} />
-                          <div>
-                            <strong>{source.name}</strong>
-                            <span>{source.source}</span>
-                          </div>
-                        </div>
-                        <p>{source.detail}</p>
-                        <footer>
-                          <em>{source.status}</em>
-                          <span>{source.cadence}</span>
-                          <button type="button" onClick={() => removeCaptureSource(source.name)}>Remove</button>
-                        </footer>
-                      </article>
-                    ))}
-                  </div>
-                  <div className="coming-soon-integrations">
-                    <strong>Coming soon</strong>
-                    <span>Integrations with Apollo and Dripify for outbound sequence context, prospect activity, and automated capture into the right customer profile.</span>
-                  </div>
-                    </Section>
-
-                    <Section title="Data" action={<button className="secondary" onClick={() => setShowCustomerUpload(true)}><Upload size={16} /> Upload</button>}>
-                  <div className="data-tabs" aria-label="Customer data types">
-                    {dataTabs.map((tab) => (
-                      <button className={dataTab === tab ? 'active' : ''} key={tab} onClick={() => setDataTab(tab)}>
-                        {tab}
-                        <span>{selectedDataPoints.filter((item) => item.type === tab).length}</span>
-                      </button>
-                    ))}
-                  </div>
-                    </Section>
-                  </>
-                ) : (
-                  <div className="customer-proof-page">
-                    <Section title="Proof Points">
-                      <div className="customer-proof-list">
-                        {selectedProofAssets.length === 0 ? (
-                          <div className="empty-state">
-                            <Sparkles size={22} />
-                            <p>No customer-specific proof points have been extracted yet.</p>
-                          </div>
-                        ) : selectedProofAssets.map((asset) => (
-                          <button className="proof-asset-row" key={asset.id} onClick={() => { setSelectedCustomerProof(asset); setSelectedCustomerProofCustomer(selected) }}>
-                            <span>{asset.type}</span>
-                            <strong>{asset.text}</strong>
-                            <p>{asset.source}</p>
-                          </button>
-                        ))}
-                      </div>
-                    </Section>
-
-                    <Section
-                      title="Collateral"
-                      action={
-                        <button className="secondary" onClick={openCollateralSetup} disabled={collateralGenerating}>
-                          <Sparkles size={16} /> {collateralGenerating ? 'Generating...' : 'Generate collateral'}
-                        </button>
-                      }
-                    >
-                      <div className="customer-proof-list">
-                        {selected.collateral.length === 0 ? (
-                          <div className="empty-state">
-                            <FileText size={22} />
-                            <p>No collateral has been generated for this customer yet.</p>
-                          </div>
-                        ) : selected.collateral.map((asset) => (
-                          <button className="collateral-card" key={asset.title} onClick={() => { setSelectedCollateral(asset); setSelectedCollateralCustomer(selected) }}>
-                            <div><strong>{asset.title}</strong><span>{asset.type} · {asset.status}</span></div>
-                            <p>{asset.summary}</p>
-                          </button>
-                        ))}
-                      </div>
-                    </Section>
-                  </div>
-                )}
-              </div>
-
-              <aside className="right-column customer-right-column">
-                <Section
-                  title="Upcoming"
-                  action={
-                    <button className="secondary" onClick={simulateCalendarNotice} disabled={calendarNoticeParsing}>
-                      <Clock3 size={16} /> {calendarNoticeParsing ? 'Detecting...' : 'Simulate meeting'}
-                    </button>
-                  }
-                >
-                  <div className="upcoming-list">
-                    {selectedUpcomingItems.length === 0 ? (
-                      <div className="empty-state">
-                        <Clock3 size={22} />
-                        <p>No upcoming customer actions yet.</p>
-                      </div>
-                    ) : selectedUpcomingItems.map((item) => (
-                      <button className="upcoming-item" key={`${item.type}-${item.title}`} onClick={() => setSelectedUpcomingItem(item)}>
-                        <div className="upcoming-type">{iconForUpcoming(item.type)}</div>
-                        <div>
-                          <strong>{item.title}</strong>
-                          <span>{item.due} · Source: {item.source}</span>
-                          <p>{item.summary}</p>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </Section>
-
-                <section className="panel customer-agent-panel">
-                  <div className="agent-topbar">
-                    <button type="button" className={customerAgentView === 'current' ? 'active' : ''} onClick={() => setCustomerAgentView('current')}>
-                      Current
-                      <span>{customerAgentMessages.length ? `${customerAgentMessages.length} messages` : 'No active chat'}</span>
-                    </button>
-                    <button type="button" className={customerAgentView === 'history' ? 'active' : ''} onClick={() => setCustomerAgentView('history')}>
-                      History
-                    </button>
-                    <button type="button" className="secondary" onClick={startNewCustomerAgentChat}>New chat</button>
-                  </div>
-                  <div className="dashboard-agent-chat customer-agent-chat">
-                    <div className="customer-agent-context">
-                      <strong>Fine-tuned on {selected.name}</strong>
-                      <span>Uses this customer’s data sources, timeline, upcoming work, deal context, objections, and proof history.</span>
-                    </div>
-                    {customerAgentView === 'history' ? (
-                      customerAgentHistory.length === 0 ? (
-                        <p className="empty-chat">No archived customer chats yet.</p>
-                      ) : (
-                        <div className="agent-history-list">
-                          {customerAgentHistory.map((item, index) => (
-                            <button key={`${item}-${index}`} onClick={() => setCustomerAgentView('current')}>{item}</button>
-                          ))}
+              <div className="wire-detail-main single">
+                <main className="wire-detail-content">
+                  <section className="wire-stage-track" aria-label="Customer stage">
+                    {(['Discovery', 'Proposal Sent', 'Security Review', 'Negotiation', 'Closed Won', 'Expansion'] as Stage[]).map((stage, index, stages) => {
+                      const current = Math.max(0, stages.indexOf(selected.stage))
+                      return (
+                        <div className={`wire-stage-step ${index < current ? 'done' : index === current ? 'current' : ''}`} key={stage}>
+                          <span />
+                          <em>{stage}</em>
                         </div>
                       )
-                    ) : customerAgentMessages.length === 0 ? (
-                      <p className="empty-chat">Ask about this customer, upcoming work, source data, or proof to use next.</p>
-                    ) : (
-                      <>
-                        {customerAgentMessages.map((message, index) => (
-                          <div className={`dashboard-agent-msg ${message.role}`} key={index}>
-                            <p>{message.text}</p>
-                          </div>
-                        ))}
-                        {customerAgentThinking && <AgentThinking />}
-                      </>
-                    )}
-                  </div>
-                  <form className="dashboard-agent-input customer-agent-input" onSubmit={(event) => { event.preventDefault(); submitCustomerAgent() }}>
-                    <input value={customerAgentInput} onChange={(event) => setCustomerAgentInput(event.target.value)} placeholder={`Ask about ${selected.name}...`} disabled={customerAgentThinking} />
-                    <button type="submit" aria-label="Send" disabled={customerAgentThinking || !customerAgentInput.trim()}><Send size={16} /></button>
-                  </form>
-                </section>
-              </aside>
-            </div>
-          )}
+                    })}
+                  </section>
 
-          {view === 'library' && (
-            <div className="library-memory">
-              <Section title="Proof Groups" action={<Sparkles size={18} />}>
-                <div className="library-group-grid">
-                  {libraryProofGroups.map((group) => (
-                    <article className="library-group-card" key={group.title}>
-                      <div>
-                        <strong>{group.title}</strong>
-                        <span>{group.count} items</span>
-                      </div>
-                      <p>{group.detail}</p>
+                  <div className="wire-detail-grid">
+                    <article className="wire-detail-block">
+                      <span>Company</span>
+                      <p><strong>{selected.name}</strong> · {selected.industry} · {selected.size}</p>
                     </article>
-                  ))}
-                </div>
-              </Section>
+                    <article className="wire-detail-block">
+                      <span>Last touchpoint</span>
+                      <p><strong>{selected.lastActivity}</strong><br />{selected.contacts[0] ?? 'No primary contact'} · {selected.value || 'Value not set'}</p>
+                    </article>
+                    <article className="wire-detail-block">
+                      <span>Next action</span>
+                      <p><strong>{selectedUpcomingItems[0]?.title ?? 'No action detected'}</strong><br />{selectedUpcomingItems[0]?.due ?? 'Dalil is watching for the next signal'}</p>
+                    </article>
+                    <article className="wire-detail-block full">
+                      <span>Dalil flagged</span>
+                      <div className="wire-flag-list">
+                        <p><i className="d-red" /> <strong>Main objection</strong> — {selected.objection}</p>
+                        <p><i className="d-blue" /> <strong>Best proof angle</strong> — {selected.proof[0]?.metric ?? `${selected.proofCount} proof signals available`}</p>
+                        <p><i className="d-green" /> <strong>Proof moment</strong> — {selected.proof[0]?.quote ?? 'No approved quote captured yet.'}</p>
+                      </div>
+                    </article>
+                    <article className="wire-detail-block full">
+                      <span>What needs to happen</span>
+                      <p>{selectedUpcomingItems[0]?.recommendedAction ?? `Use the strongest proof around ${selected.objection.toLowerCase()} and prepare a concise follow-up for ${selected.contacts[0] ?? selected.name}.`}</p>
+                      <div className="wire-action-bar">
+                        <button className="primary" onClick={openCollateralSetup} disabled={collateralGenerating}><Sparkles size={16} /> {collateralGenerating ? 'Generating...' : 'Generate collateral'}</button>
+                        <button className="secondary" onClick={() => runAiAction(`Suggest the next best action for ${selected.name} based on ${selected.objection}`)}><Sparkles size={16} /> Suggest next action</button>
+                        <button className="secondary" onClick={() => setShowCustomerUpload(true)}><Upload size={16} /> Add data</button>
+                      </div>
+                    </article>
+                  </div>
 
-              <div className="library-layout">
-                <main className="main-column">
-                  <Section title="All Proof Points">
-                    <div className="filter-bar">
-                      {(['All', 'Quote', 'Metric', 'Outcome', 'Objection', 'Sales snippet'] as const).map((filter) => (
-                        <button className={libraryProofFilter === filter ? 'active' : ''} key={filter} onClick={() => setLibraryProofFilter(filter)}>
-                          {filter === 'All' ? 'All' : filter === 'Quote' ? 'Quotes' : filter === 'Metric' ? 'Metrics' : filter === 'Outcome' ? 'Outcomes' : filter === 'Objection' ? 'Objections' : 'Sales snippets'}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="proof-list library-proof-list">
-                      {visibleLibraryProofAssets.map((asset) => (
-                        <button className="proof-asset-row" key={`${asset.parentProof.sourceCustomer}-${asset.id}`} onClick={() => { setSelectedCustomerProof(asset); setSelectedCustomerProofCustomer(customers.find((customer) => customer.name === asset.parentProof.sourceCustomer) ?? null) }}>
-                          <span>{asset.type}</span>
-                          <strong>{asset.text}</strong>
-                          <p>{asset.parentProof.sourceCustomer} · {asset.source}</p>
-                        </button>
+                  <Section
+                    title="Timeline"
+                    action={
+                      <div className="segmented-control" aria-label="Timeline view">
+                        <button className={timelineView === 'condensed' ? 'active' : ''} onClick={() => setTimelineView('condensed')}>Condensed</button>
+                        <button className={timelineView === 'comprehensive' ? 'active' : ''} onClick={() => setTimelineView('comprehensive')}>Comprehensive</button>
+                      </div>
+                    }
+                  >
+                    <div className={`timeline timeline-${timelineView}`}>
+                      {selectedTimelineItems.map((item) => (
+                        <article className="timeline-item" key={`${item.title}-${item.date}`}>
+                          <div className="timeline-icon">{iconFor(item.type)}</div>
+                          <div>
+                            <strong>{item.title}</strong>
+                            <span>{item.type} · {item.date}</span>
+                            <p>{item.summary}</p>
+                          </div>
+                          {item.proofDetected && <em>Potential proof detected</em>}
+                        </article>
                       ))}
                     </div>
                   </Section>
 
                 </main>
-
-                <aside className="right-column">
-                  <Section title="What Dalil is seeing" action={<Sparkles size={18} />}>
-                    <div className="insight-list">
-                      <Insight title="What you are good at" detail="Implementation speed, lean-team rollout, and turning founder-led proof into repeatable sales assets." />
-                      <Insight title="What prospects ask often" detail="Implementation bandwidth, trust against incumbents, security review, and proof from similar teams." />
-                      <Insight title="Strongest proof formats" detail="Quotes and metrics are strongest today; customer-approved case studies are still limited." />
-                    </div>
-                  </Section>
-                </aside>
               </div>
             </div>
           )}
 
-          {view === 'collateral' && (
+          {view === 'integrations' && (
+            <div className="wireframe-page">
+              <div className="side-tab-grid">
+                {customers.map((customer) => {
+                  const sources = [...buildDataSources(customer), ...(configuredSourceAdds[customer.id] ?? [])].filter((source) => !(hiddenConfiguredSources[customer.id] ?? []).includes(source.name))
+                  const connected = sources.filter((source) => source.status === 'Connected').length
+                  const configured = sources.filter((source) => source.status === 'Configured').length
+                  const manual = sources.filter((source) => source.status === 'Manual').length
+                  return (
+                    <button className="customer-data-card integration-summary-card" key={customer.id} onClick={() => openIntegrationSetup(customer.id)}>
+                      <header>
+                        <div>
+                          <strong>{customer.name}</strong>
+                          <span>{customer.industry} · {customer.status}</span>
+                        </div>
+                        <em>Configure</em>
+                      </header>
+                      <div className="integration-summary">
+                        <strong>{connected} connected</strong>
+                        <span>{configured} configured · {manual} manual · {sources.length} total</span>
+                        <p>{sources.slice(0, 3).map((source) => source.name).join(', ')}{sources.length > 3 ? `, +${sources.length - 3} more` : ''}</p>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {view === 'rawData' && (
+            <div className="wireframe-page">
+              <div className="side-tab-grid">
+                {customers.map((customer) => {
+                  const dataPoints = [...(uploadedDataPoints[customer.id] ?? []), ...buildCustomerDataPoints(customer)]
+                  const proofDetected = dataPoints.filter((item) => item.status === 'Proof detected').length
+                  const needsReview = dataPoints.filter((item) => item.status === 'Needs review').length
+                  const sourceTypes = [...new Set(dataPoints.map((item) => item.type))].slice(0, 3)
+                  return (
+                    <button className="customer-data-card integration-summary-card" key={customer.id} onClick={() => setRawDataCustomerId(customer.id)}>
+                      <header>
+                        <div>
+                          <strong>{customer.name}</strong>
+                          <span>{customer.industry} · {customer.status}</span>
+                        </div>
+                        <em>View data</em>
+                      </header>
+                      <div className="integration-summary">
+                        <strong>{dataPoints.length} raw data items</strong>
+                        <span>{proofDetected} proof detected · {needsReview} needs review</span>
+                        <p>{sourceTypes.length ? sourceTypes.join(', ') : 'No sources captured yet'}</p>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {view === 'library' && (
+            <div className="library-memory">
+              <Section title="Proof types" action={<Sparkles size={18} />}>
+                <div className="library-group-grid proof-type-grid">
+                  <button className={`library-group-card ${libraryProofFilter === 'All' ? 'active' : ''}`} onClick={() => { setLibraryProofFilter('All'); setLibraryCustomerFilter('All') }}>
+                    <div>
+                      <strong>All proof</strong>
+                      <span>{libraryProofAssets.length} items</span>
+                    </div>
+                    <p>Quotes, metrics, outcomes, objections, and reusable sales snippets across every customer.</p>
+                  </button>
+                  {libraryProofTypeCards.map((group) => (
+                    <button className={`library-group-card ${libraryProofFilter === group.type ? 'active' : ''}`} key={group.type} onClick={() => { setLibraryProofFilter(group.type); setLibraryCustomerFilter('All') }}>
+                      <div>
+                        <strong>{group.type === 'Sales snippet' ? 'Sales snippets' : `${group.type}s`}</strong>
+                        <span>{group.count} items</span>
+                      </div>
+                      <p>{group.customers} customer {group.customers === 1 ? 'source' : 'sources'} with this proof type.</p>
+                    </button>
+                  ))}
+                </div>
+              </Section>
+
+              <Section title={libraryProofFilter === 'All' ? 'All proof' : `${libraryProofFilter} proof`} action={<span className="table-count">{visibleLibraryProofAssets.length} shown</span>}>
+                <div className="filter-bar">
+                  {libraryCustomerOptions.map((filter) => (
+                    <button className={libraryCustomerFilter === filter ? 'active' : ''} key={filter} onClick={() => setLibraryCustomerFilter(filter)}>
+                      {filter}
+                    </button>
+                  ))}
+                </div>
+                {visibleLibraryProofAssets.length === 0 ? (
+                  <div className="empty-state">
+                    <Sparkles size={22} />
+                    <p>No proof matches this filter yet.</p>
+                  </div>
+                ) : (
+                  <div className="proof-list library-proof-list">
+                    {visibleLibraryProofAssets.map((asset) => (
+                      <button className="proof-asset-row" key={`${asset.parentProof.sourceCustomer}-${asset.id}`} onClick={() => { setSelectedCustomerProof(asset); setSelectedCustomerProofCustomer(customers.find((customer) => customer.name === asset.parentProof.sourceCustomer) ?? null) }}>
+                        <span>{asset.type}</span>
+                        <strong>{asset.text}</strong>
+                        <p>{asset.parentProof.sourceCustomer} · {asset.source}</p>
+                        <em className="ai-hover" title={`Ask Dalil why this proof matters for ${asset.parentProof.sourceCustomer}`} onClick={(event) => { event.stopPropagation(); runAiAction(`Explain the context for this ${asset.type.toLowerCase()} from ${asset.parentProof.sourceCustomer}: ${asset.text}`) }}><Sparkles size={14} /></em>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </Section>
+            </div>
+          )}
+
+          {view === 'collateralGenerate' && (
+            <div className="collateral-generate-page">
+              <section className="panel collateral-generator">
+                <div className="agent-topbar">
+                  <button type="button" className="active">
+                    Collateral AI
+                    <span>{collateralAgentMessages.length ? `${collateralAgentMessages.length} messages` : 'Ready to draft'}</span>
+                  </button>
+                </div>
+                <div className="dashboard-agent-chat customer-agent-chat">
+                  <div className="customer-agent-context">
+                    <strong>Creates proof-backed collateral</strong>
+                    <span>Uses customer proof, proof library patterns, audience, channel, and approval status.</span>
+                  </div>
+                  {collateralAgentMessages.length === 0 ? (
+                    <>
+                      <p className="empty-chat">Describe the asset you want: audience, goal, proof angle, and channel.</p>
+                      <div className="ai-suggestion-row">
+                        {activeCustomers.slice(0, 3).map((customer) => (
+                          <button type="button" key={customer.id} onClick={() => setCollateralAgentInput(`Generate a one-pager for ${customer.name} addressing ${customer.objection.toLowerCase()}`)}>
+                            <Sparkles size={14} /> {customer.name} one-pager
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {collateralAgentMessages.map((message, index) => (
+                        <div className={`dashboard-agent-msg ${message.role}`} key={index}>
+                          <p>{message.text}</p>
+                        </div>
+                      ))}
+                      {collateralAgentThinking && <AgentThinking />}
+                    </>
+                  )}
+                </div>
+                <form className="dashboard-agent-input customer-agent-input" onSubmit={(event) => { event.preventDefault(); submitCollateralAgent() }}>
+                  <input value={collateralAgentInput} onChange={(event) => setCollateralAgentInput(event.target.value)} placeholder="Create a case study for..." disabled={collateralAgentThinking} />
+                  <button type="submit" aria-label="Send" disabled={collateralAgentThinking || !collateralAgentInput.trim()}><Send size={16} /></button>
+                </form>
+              </section>
+            </div>
+          )}
+
+          {view === 'collateralPublished' && (
             <div className="collateral-page">
               <main className="main-column">
                 <Section title="All Collateral" action={<span className="table-count">{visibleCollateralRows.length} shown</span>}>
@@ -2724,6 +2171,9 @@ function App() {
                             <td>
                               <strong>{row.asset.title}</strong>
                               <span>{row.asset.type} · {row.channel}</span>
+                              <button type="button" className="ai-inline table-ai" title="Rewrite with AI" onClick={(event) => { event.stopPropagation(); runAiAction(`Rewrite or adapt this collateral: ${row.asset.title}`) }}>
+                                <Sparkles size={14} />
+                              </button>
                             </td>
                             <td>{row.servedCustomer}</td>
                             <td>{row.communicates}</td>
@@ -2790,7 +2240,7 @@ function App() {
             <form className="modal-form" onSubmit={createCustomer}>
               <div className="form-grid">
                 <Field label="Customer name" required>
-                  <input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} required placeholder="BrightCart" />
+                  <input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} required placeholder="Linear" />
                 </Field>
                 <Field label="Logo (initials)" hint="Auto from name if blank">
                   <input value={draft.logo} onChange={(event) => setDraft({ ...draft, logo: event.target.value })} maxLength={3} placeholder="BC" />
@@ -2802,7 +2252,7 @@ function App() {
                   <input value={draft.size} onChange={(event) => setDraft({ ...draft, size: event.target.value })} placeholder="120 employees" />
                 </Field>
                 <Field label="Website" wide>
-                  <input value={draft.website} onChange={(event) => setDraft({ ...draft, website: event.target.value })} placeholder="brightcart.io" />
+                  <input value={draft.website} onChange={(event) => setDraft({ ...draft, website: event.target.value })} placeholder="linear.app" />
                 </Field>
                 <Field label="Status">
                   <select value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value as CustomerStatus })}>
@@ -2959,7 +2409,20 @@ function App() {
             </div>
             <footer className="modal-foot">
               <button type="button" className="secondary" onClick={closeProof}>Close</button>
-              <button type="button" className="primary" onClick={() => { view === 'customerDetail' ? askCustomerAgent(`Help me use this proof asset: ${selectedCustomerProof.text}`) : openChat(`Help me use this proof asset: ${selectedCustomerProof.text}`); closeProof() }}>Use in agent</button>
+              <button
+                type="button"
+                className="primary"
+                onClick={() => {
+                  if (view === 'customerDetail') {
+                    askCustomerAgent(`Help me use this proof asset: ${selectedCustomerProof.text}`)
+                  } else {
+                    openChat(`Help me use this proof asset: ${selectedCustomerProof.text}`)
+                  }
+                  closeProof()
+                }}
+              >
+                Use in agent
+              </button>
             </footer>
           </div>
         </div>
@@ -2984,14 +2447,21 @@ function App() {
               </div>
               <section className="proof-section">
                 <h3>Collateral</h3>
-                <div className="collateral-document">
-                  {buildCollateralDocument(selectedCollateralCustomer ?? buildCompanyCustomer(customers), selectedCollateral).map((section) => (
-                    <article key={section.title}>
-                      <h4>{section.title}</h4>
-                      {section.lines.map((line) => <p key={line}>{line}</p>)}
-                    </article>
-                  ))}
-                </div>
+                {selectedCollateralCustomer?.id === 'nvidia' && selectedCollateral.title === 'Alma for NVIDIA pitch deck' ? (
+                  <div className="collateral-deck-preview">
+                    <iframe title="Alma for NVIDIA pitch deck" src="/alma-nvidia-pitch-deck.html" />
+                    <a href="/alma-nvidia-pitch-deck.html" target="_blank" rel="noreferrer">Open full slide deck</a>
+                  </div>
+                ) : (
+                  <div className="collateral-document">
+                    {buildCollateralDocument(selectedCollateralCustomer ?? buildCompanyCustomer(customers), selectedCollateral).map((section) => (
+                      <article key={section.title}>
+                        <h4>{section.title}</h4>
+                        {section.lines.map((line) => <p key={line}>{line}</p>)}
+                      </article>
+                    ))}
+                  </div>
+                )}
               </section>
               <section className="proof-section">
                 <h3>Context</h3>
@@ -3078,6 +2548,68 @@ function App() {
         </div>
       )}
 
+      {rawDataCustomer && (
+        <div className="modal-backdrop" onClick={closeRawDataCustomer}>
+          <div className="modal proof-modal data-modal raw-customer-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+            <header className="modal-head">
+              <div>
+                <span className="eyebrow">Raw data</span>
+                <h2>{rawDataCustomer.name}</h2>
+              </div>
+              <button type="button" className="modal-close" onClick={closeRawDataCustomer} aria-label="Close">
+                <X size={18} />
+              </button>
+            </header>
+            <div className="proof-body">
+              <div className="proof-stats data-stats">
+                <div className="proof-stat"><span>Total items</span><strong>{rawDataCustomerPoints.length}</strong></div>
+                <div className="proof-stat"><span>Proof detected</span><strong>{rawDataCustomerPoints.filter((item) => item.status === 'Proof detected').length}</strong></div>
+                <div className="proof-stat"><span>Needs review</span><strong>{rawDataCustomerPoints.filter((item) => item.status === 'Needs review').length}</strong></div>
+              </div>
+              <section className="proof-section">
+                <h3>Sources by type</h3>
+                <div className="modal-raw-list raw-type-list">
+                  {dataTabs.map((tab) => {
+                    const items = rawDataCustomerPoints.filter((item) => item.type === tab)
+                    if (items.length === 0) return null
+                    return (
+                      <section className="raw-type-section" key={tab}>
+                        <header>
+                          <strong>{tab}</strong>
+                          <span>{items.length}</span>
+                        </header>
+                        <div className="raw-mini-list">
+                          {items.map((item) => (
+                            <button
+                              type="button"
+                              key={`${rawDataCustomer.id}-${item.type}-${item.title}`}
+                              onClick={() => {
+                                setSelectedId(rawDataCustomer.id)
+                                setSelectedDataPoint(item)
+                                setRawDataCustomerId(null)
+                              }}
+                            >
+                              <strong>{item.title}</strong>
+                              <span>{item.source} · {item.date}</span>
+                              <p>{item.signal}</p>
+                              <em className="ai-hover" title="Extract proof with AI" onClick={(event) => { event.stopPropagation(); runAiAction(`Extract reusable proof from ${rawDataCustomer.name} raw data: ${item.title}`) }}><Sparkles size={14} /></em>
+                            </button>
+                          ))}
+                        </div>
+                      </section>
+                    )
+                  })}
+                  {rawDataCustomerPoints.length === 0 && <p className="empty-mini">No raw data captured yet.</p>}
+                </div>
+              </section>
+            </div>
+            <footer className="modal-foot">
+              <button type="button" className="secondary" onClick={closeRawDataCustomer}>Close</button>
+            </footer>
+          </div>
+        </div>
+      )}
+
       {showCollateralSetup && selected && (
         <div className="modal-backdrop" onClick={() => !collateralGenerating && setShowCollateralSetup(false)}>
           <div className="modal proof-modal capture-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
@@ -3092,13 +2624,13 @@ function App() {
             </header>
             <form className="modal-form" onSubmit={generateCustomerCollateral}>
               <div className="form-grid">
-                <Field label="Who is this collateral for?" wide required hint="Example: Dev Patel, Head of Data at Northpoint AI.">
+                <Field label="Who is this collateral for?" wide required hint="Example: Dev Patel, Head of Data at NVIDIA.">
                   <textarea
                     rows={2}
                     required
                     value={collateralDraft.audience}
                     onChange={(event) => setCollateralDraft({ ...collateralDraft, audience: event.target.value })}
-                    placeholder={selected.contacts[0] ?? 'Dev Patel, Head of Data at Northpoint AI'}
+                    placeholder={selected.contacts[0] ?? 'Dev Patel, Head of Data at NVIDIA'}
                   />
                 </Field>
                 <Field label="What do you want to prove?" wide required hint="Example: Dalil can securely handle sensitive customer proof.">
@@ -3138,11 +2670,11 @@ function App() {
 
       {showSourceSetup && selected && (
         <div className="modal-backdrop" onClick={() => setShowSourceSetup(false)}>
-          <div className="modal proof-modal capture-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+          <div className="modal proof-modal capture-modal simple-integration-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
             <header className="modal-head">
               <div>
-                <span className="eyebrow">Data source · {selected.name}</span>
-                <h2>Configure a new capture method</h2>
+                <span className="eyebrow">Integrations</span>
+                <h2>{selected.name}</h2>
               </div>
               <button type="button" className="modal-close" onClick={() => setShowSourceSetup(false)} aria-label="Close">
                 <X size={18} />
@@ -3150,32 +2682,36 @@ function App() {
             </header>
             <div className="proof-body">
               <section className="proof-section capture-modal-section">
-                <h3>Capture type</h3>
-                <div className="capture-options">
+                <h3>Enabled</h3>
+                <div className="simple-enabled-list">
+                  {[...buildDataSources(selected), ...(configuredSourceAdds[selected.id] ?? [])]
+                    .filter((source) => !(hiddenConfiguredSources[selected.id] ?? []).includes(source.name))
+                    .map((source) => (
+                      <article className="simple-integration-row" key={source.name}>
+                        <span className={`source-dot source-${source.status.toLowerCase()}`} />
+                        <div>
+                          <strong>{source.name}</strong>
+                          <em>{source.status} · {source.cadence}</em>
+                        </div>
+                      </article>
+                    ))}
+                </div>
+              </section>
+              <section className="proof-section capture-modal-section">
+                <h3>Add or update</h3>
+                <div className="simple-integration-options">
                   {captureSourceOptions.map((option) => (
                     <button className={captureSourceType === option ? 'active' : ''} key={option} onClick={() => { setCaptureSourceType(option); setCaptureSetupDraft(defaultCaptureSetup) }}>
-                      {option}
+                      <strong>{option}</strong>
+                      <span>{captureSourcePreview(selected, option, defaultCaptureSetup)}</span>
                     </button>
                   ))}
                 </div>
               </section>
-              <section className="proof-section capture-modal-section">
-                <h3>Setup details</h3>
-                <CaptureSetupFields
-                  customer={selected}
-                  draft={captureSetupDraft}
-                  setDraft={setCaptureSetupDraft}
-                  type={captureSourceType}
-                />
-              </section>
-              <section className="proof-section capture-modal-section">
-                <h3>Preview</h3>
-                <p className="data-modal-copy">{captureSourcePreview(selected, captureSourceType, captureSetupDraft)}</p>
-              </section>
             </div>
             <footer className="modal-foot">
-              <button type="button" className="secondary" onClick={() => setShowSourceSetup(false)}>Cancel</button>
-              <button type="button" className="primary" onClick={addCaptureSource}>Configure</button>
+              <button type="button" className="secondary" onClick={() => setShowSourceSetup(false)}>Close</button>
+              <button type="button" className="primary" onClick={addCaptureSource}>Enable {captureSourceType}</button>
             </footer>
           </div>
         </div>
@@ -3445,10 +2981,6 @@ function statusClass(status: CustomerStatus) {
   return status.toLowerCase().replace(/\s+/g, '-')
 }
 
-function customerJourneySummary(customer: Customer) {
-  return customer.journeySummary || `${customer.name} is a ${customer.industry} account currently at ${customer.stage}. They need help turning scattered relationship context into proof they can use in sales conversations, with the main concern centered on ${customer.objection || 'credibility and implementation confidence'}. So far Dalil has captured ${customer.interactionCount} interactions and surfaced ${customer.proofCount} proof points, giving the team a clearer view of what this customer cares about, what has been discussed, and which evidence can be reused in future deals.`
-}
-
 function buildInteractionHistory(customer: Customer): Interaction[] {
   const templates: Interaction[] = [
     {
@@ -3582,31 +3114,6 @@ function sentenceCase(value: string) {
   return cleaned ? `${cleaned[0].toUpperCase()}${cleaned.slice(1)}` : cleaned
 }
 
-function buildGeneralAgentReply(
-  turn: number,
-  input: string,
-  context: { customers: number; interactions: number; proof: number; activeDeals: number; topSegment: string; strongestCustomer: string },
-): ChatMessage {
-  if (turn === 1 && /^(yes|yep|yeah|please|sure|generate|do it)\b/i.test(input.trim())) {
-    return {
-      role: 'agent',
-      text: 'generating the case study...',
-      attachment: {
-        label: 'Northbeam AI security case study.pdf',
-        href: '/case-studies/northpoint-security-case-study.pdf',
-      },
-    }
-  }
-
-  const replies = [
-    `Northbeam's main concern is security. You have a 2 PM meeting today with Dev Patel, Head of Data. To assure them of our system's security, would you like me to generate a case study to send to him before the meeting?`,
-    `Company-wide, Dalil is tracking ${context.customers} customer profiles, ${context.interactions} interactions, and ${context.proof} proof points. The strongest segment right now is ${context.topSegment}, with ${context.activeDeals} active deals that need proof support. I would package ${context.strongestCustomer} first, then use that proof in active conversations where the concern is implementation risk, incumbent trust, or ROI.`,
-    `The biggest gap is activation. There is enough proof in the library, but the team needs to turn it into sharper deal support: one proof card for implementation bandwidth, one proof card for incumbent displacement, and one short metric-backed follow-up email template.`,
-    `For the next demo step, I would open the most urgent active account, show the upcoming meeting, and ask the customer agent for a pre-meeting brief. That connects the company-wide proof memory to an actual sales moment.`,
-  ]
-  return { role: 'agent', text: replies[turn % replies.length] }
-}
-
 function buildCustomerAgentReply(
   turn: number,
   context: { name: string; stage: Stage; objection: string; dataCount: number; timelineCount: number; proofAssetCount: number; upcomingCount: number },
@@ -3699,7 +3206,7 @@ function normalizeCollateralRow(asset: Collateral, customer: Customer | null, id
       channel: asset.channel ?? inferChannel(text, asset.type),
     },
     customer,
-    servedCustomer: customer?.name ?? asset.servedCustomer ?? 'Northpoint AI',
+    servedCustomer: customer?.name ?? asset.servedCustomer ?? 'NVIDIA',
     communicates,
     metric: asset.metric ?? inferMetric(text, communicates),
     audience: asset.audience ?? inferAudience(text, asset.type),
@@ -4351,7 +3858,7 @@ function buildCustomerDataPoints(customer: Customer): CustomerDataPoint[] {
       type: 'CRM notes',
       title: 'Objection history',
       date: 'Apr 21',
-      source: 'Salesforce import',
+      source: 'CRM import',
       status: 'Proof detected',
       signal: `Linked historical objections to ${customer.objection} and similar proof used in prior deals.`,
       detail: 'This supports the recommendation layer by showing which proof was used against comparable objections.',
@@ -4582,49 +4089,141 @@ function buildCollateralDocument(customer: Customer, asset: Collateral): RawData
   const metric = primaryProof?.metric ?? `${customer.proofCount} proof points extracted`
   const objection = customer.objection || 'credibility risk'
 
-  if (customer.id === 'brightcart' && asset.type.toLowerCase().includes('case')) {
+  if (customer.id === 'nvidia' && asset.type.toLowerCase().includes('slide')) {
+    return [
+      {
+        title: 'Slide 1: Alma for NVIDIA',
+        lines: [
+          'AI-native immigration support for high-growth global teams.',
+          'A faster, more transparent way to manage complex immigration workflows without sacrificing reliability, compliance, or attorney oversight.',
+        ],
+      },
+      {
+        title: 'Slide 2: The core question',
+        lines: [
+          'Why should NVIDIA trust Alma over a 25-year incumbent?',
+          'NVIDIA does not just need a large immigration vendor. It needs a partner that can move at the speed of modern talent, AI, and global hiring.',
+        ],
+      },
+      {
+        title: 'Slide 3: What NVIDIA likely cares about',
+        lines: [
+          'Can Alma handle high-volume, high-stakes immigration work?',
+          'Will employees and recruiting teams get faster responses?',
+          'Is the legal work still reviewed by qualified experts?',
+          'Can NVIDIA get visibility into case status without constant follow-up?',
+        ],
+      },
+      {
+        title: 'Slide 4: The legacy firm problem',
+        lines: [
+          'Traditional immigration providers were built around manual process: slow response cycles, opaque case status, repetitive information requests, and heavy email back-and-forth.',
+          'For NVIDIA, the risk is not just cost. The risk is losing time with candidates, employees, and internal teams.',
+        ],
+      },
+      {
+        title: 'Slide 5: Alma\'s approach',
+        lines: [
+          'AI-native where speed matters. Attorney-led where judgment matters.',
+          'Alma streamlines intake, document collection, case status updates, draft preparation, routing, reminders, and employee-facing support while keeping legal judgment with immigration experts.',
+        ],
+      },
+      {
+        title: 'Slide 6: Why Alma is safer than it looks',
+        lines: [
+          'Choosing a newer company can feel risky. Alma reduces that risk through transparency.',
+          'NVIDIA gets clear case progress, structured workflows, faster escalation, consistent employee communication, human legal review, and data-backed reporting.',
+        ],
+      },
+      {
+        title: 'Slide 7: Where Alma helps immediately',
+        lines: [
+          'Recruiting teams get faster answers on candidate immigration feasibility and timelines.',
+          'Employees get clearer status updates, fewer confusing email chains, and better guidance.',
+          'HR and People Ops get more visibility, fewer manual follow-ups, and cleaner reporting across cases.',
+        ],
+      },
+      {
+        title: 'Slide 8: Example workflow',
+        lines: [
+          'Before Alma: recruiter asks for status, HR emails the law firm, attorney or paralegal checks manually, employee gets a delayed update, and recruiting still lacks confidence.',
+          'With Alma: case status is structured, visible, and updated continuously. Routine questions move faster, and legal experts focus on judgment-heavy work.',
+        ],
+      },
+      {
+        title: 'Slide 9: Why this matters for NVIDIA',
+        lines: [
+          'NVIDIA competes for the world\'s most specialized technical talent.',
+          'Immigration delays can affect candidate close rates, start dates, employee experience, retention, internal productivity, and global workforce planning.',
+        ],
+      },
+      {
+        title: 'Slide 10: Why not Fragomen',
+        lines: [
+          'Fragomen is established. That is valuable. But established does not always mean optimized for NVIDIA\'s current pace.',
+          'Alma is built for teams that need faster workflows, more transparency, better employee experience, AI-native operations, modern reporting, and high-touch legal support without legacy process drag.',
+        ],
+      },
+      {
+        title: 'Slide 11: Controlled pilot',
+        lines: [
+          'Start with one business unit or employee segment, defined case types, clear success metrics, weekly reporting, and an escalation path for complex cases.',
+          'Measure response time, case status visibility, employee satisfaction, HR follow-up volume, time saved by Recruiting and People Ops, and attorney review quality.',
+        ],
+      },
+      {
+        title: 'Slide 12: Closing message',
+        lines: [
+          'NVIDIA should not have to choose between trust and speed.',
+          'Alma is the immigration partner built for companies operating at NVIDIA\'s pace: expert-led, AI-native, transparent, and designed to scale.',
+        ],
+      },
+    ]
+  }
+
+  if (customer.id === 'linear' && asset.type.toLowerCase().includes('case')) {
     return [
       {
         title: 'Case study draft',
         lines: [
-          'BrightCart helps ecommerce teams manage customer onboarding at scale. As the company moved upmarket, its post-sales team was spending too much time preparing each launch manually and pulling engineering into repeat customer questions.',
+          'Linear manages upmarket product and sales motions with a lean team. As the company moved into larger strategic conversations, operators were spending too much time preparing each launch manually and rebuilding proof for every stakeholder group.',
           'The team did not lack customer success. The problem was that every successful rollout created useful proof, but that proof lived across call transcripts, renewal emails, founder notes, and internal handoff docs.',
         ],
       },
       {
         title: 'Challenge',
         lines: [
-          'BrightCart needed to show prospects that a lean post-sales team could support more launches without slowing down implementation.',
-          'Sales also needed credible examples without asking the founder or CS team to reconstruct the customer story before every deal.',
+          'Linear needed to show prospects that a lean team could support more launches without slowing down implementation.',
+          'Sales also needed credible examples without asking founders or operators to reconstruct the customer story before every strategic conversation.',
         ],
       },
       {
         title: 'How Dalil helped',
         lines: [
-          'Dalil backfilled BrightCart customer data from founder notes, a QBR transcript, and a renewal email from Maya Patel, VP Ops.',
-          'The platform extracted reusable proof points: a 42% reduction in onboarding prep, a customer-approved quote, and objection-handling snippets around implementation bandwidth.',
+          'Dalil backfilled Linear customer data from founder notes, a QBR transcript, and a renewal email from Maya Patel, VP Operations.',
+          'The platform extracted reusable proof points: a 38% reduction in launch prep, a customer-approved quote, and objection-handling snippets around implementation bandwidth.',
           'Those proof points were turned into a sales proof card and a case study draft that could be reviewed before external use.',
         ],
       },
       {
         title: 'Results',
         lines: [
-          'Reduced onboarding prep time by 42%.',
-          'Created 11 reusable proof assets from existing customer data.',
+          'Reduced launch prep time by 38%.',
+          'Created 12 reusable proof assets from existing customer data.',
           'Gave sales a customer-backed example to use when prospects worry implementation will require too much internal bandwidth.',
         ],
       },
       {
         title: 'Customer quote',
         lines: [
-          '"We got customers live without waiting on engineering every time."',
+          '"We got upmarket prospects the right proof without rebuilding the story every time."',
         ],
       },
       {
         title: 'Sales use',
         lines: [
           'Use this case study when a prospect says implementation will require too much internal bandwidth.',
-          'Best fit: lean post-sales teams, ecommerce SaaS companies, and founder-led startups trying to compete with larger vendors on credibility.',
+          'Best fit: fast-growing startups, lean GTM teams, and upmarket sales motions trying to prove rollout credibility without extra headcount.',
         ],
       },
     ]
@@ -4722,21 +4321,21 @@ function buildGeneralCollateral(customers: Customer[]): Collateral[] {
       title: 'Homepage proof block',
       type: 'Website copy',
       status: 'Internal Only',
-      servedCustomer: 'Northpoint AI',
+      servedCustomer: 'NVIDIA',
       summary: `Company-wide proof section using ${proofTotal} proof points across customer outcomes, quotes, and metrics.`,
     },
     {
       title: 'LinkedIn customer proof post',
       type: 'Marketing post',
       status: 'Internal Only',
-      servedCustomer: 'BrightCart',
+      servedCustomer: 'Linear',
       summary: 'Founder-style post about turning scattered customer wins into sales-ready proof.',
     },
     {
       title: 'Investor traction snippet',
       type: 'Investor update',
       status: 'Internal Only',
-      servedCustomer: 'AtlasPay',
+      servedCustomer: 'Mercury',
       summary: 'Short investor-facing proof summary covering customer outcomes, repeatability, and strongest segments.',
     },
     {
@@ -4746,19 +4345,6 @@ function buildGeneralCollateral(customers: Customer[]): Collateral[] {
       servedCustomer: 'SignalWorks',
       summary: 'Reusable talk tracks and proof assets for prospects worried about implementation bandwidth.',
     },
-  ]
-}
-
-function buildLibraryProofGroups(assets: ProofAsset[], customers: Customer[]) {
-  const count = (type: ProofAsset['type']) => assets.filter((asset) => asset.type === type).length
-  const frequentObjections = [...new Set(customers.map((customer) => customer.objection).filter(Boolean))].slice(0, 3)
-  return [
-    { title: 'Quotes', count: count('Quote'), detail: 'Customer language that can be used in proof cards, emails, and website copy.' },
-    { title: 'Metrics', count: count('Metric'), detail: 'Quantified outcomes such as faster onboarding, reduced prep, or improved team capacity.' },
-    { title: 'Outcomes achieved', count: count('Outcome'), detail: 'Before-and-after claims that explain what changed for customers.' },
-    { title: 'Objections overcome', count: count('Objection'), detail: frequentObjections.length ? frequentObjections.join(', ') : 'Implementation risk, incumbent trust, and ROI.' },
-    { title: 'Sales snippets', count: count('Sales snippet'), detail: 'Short reusable lines for follow-up emails, meeting prep, and active deal support.' },
-    { title: 'Proof gaps', count: customers.filter((customer) => customer.proofCount < 3).length, detail: 'Customers or segments that still need stronger evidence before they can support sales.' },
   ]
 }
 
@@ -4819,12 +4405,6 @@ function buildUpcomingItems(customer: Customer): UpcomingItem[] {
   }
 
   return items.slice(0, 2 + (customer.status === 'At Risk' ? 1 : 0))
-}
-
-function iconForUpcoming(type: UpcomingItem['type']) {
-  if (type === 'Meeting') return <Clock3 size={16} />
-  if (type === 'Email') return <Mail size={16} />
-  return <Activity size={16} />
 }
 
 function buildConfiguredCaptureSource(customer: Customer, type: CaptureSourceType, draft: CaptureSetupDraft): DataSource {
@@ -5150,10 +4730,6 @@ function Section({ title, action, children }: { title: string; action?: ReactNod
   return <section className="panel"><div className="section-head"><h2>{title}</h2>{action}</div>{children}</section>
 }
 
-function Stat({ label, value, icon }: { label: string; value: number; icon: ReactNode }) {
-  return <article className="stat-card">{icon}<span>{label}</span><strong>{value}</strong></article>
-}
-
 function Info({ label, value, wide = false }: { label: string; value: string; wide?: boolean }) {
   return <div className={`info ${wide ? 'wide-info' : ''}`}><span>{label}</span><strong>{value}</strong></div>
 }
@@ -5176,77 +4752,6 @@ function Field({ label, children, wide = false, required = false, hint }: { labe
   )
 }
 
-function CaptureSetupFields({ customer, draft, setDraft, type }: { customer: Customer; draft: CaptureSetupDraft; setDraft: (draft: CaptureSetupDraft) => void; type: CaptureSourceType }) {
-  const copy: Record<CaptureSourceType, { first: string; firstPlaceholder: string; second: string; secondPlaceholder: string; rule: string; rulePlaceholder: string }> = {
-    Email: {
-      first: 'Email/domain to match',
-      firstPlaceholder: customer.website,
-      second: 'Provider',
-      secondPlaceholder: 'Gmail',
-      rule: 'Relevance rule',
-      rulePlaceholder: 'Capture customer-domain emails that mention outcomes, objections, renewals, or proof requests.',
-    },
-    Calendar: {
-      first: 'Meeting match rule',
-      firstPlaceholder: `${customer.name}, ${customer.website}, or customer attendees`,
-      second: 'Calendar provider',
-      secondPlaceholder: 'Google Calendar',
-      rule: 'Brief trigger',
-      rulePlaceholder: 'Trigger a pre-meeting brief when an upcoming meeting includes customer contacts, open objections, or active deal context.',
-    },
-    Calls: {
-      first: 'Meeting match rule',
-      firstPlaceholder: `${customer.website} attendees or ${customer.name} calendar title`,
-      second: 'Transcript source',
-      secondPlaceholder: 'Zoom, Gong, Google Meet',
-      rule: 'Capture rule',
-      rulePlaceholder: 'Import transcript when customer contacts attend and the meeting is sales, CS, QBR, or implementation related.',
-    },
-    CRM: {
-      first: 'Opportunity/account match',
-      firstPlaceholder: customer.name,
-      second: 'CRM source',
-      secondPlaceholder: 'HubSpot',
-      rule: 'Fields to sync',
-      rulePlaceholder: 'Stage, owner notes, value, objections, competitors, next steps, close plan.',
-    },
-    Slack: {
-      first: 'Channels to scan',
-      firstPlaceholder: '#sales-wins, #customer-success',
-      second: 'Workspace',
-      secondPlaceholder: 'Company Slack',
-      rule: 'Mention rule',
-      rulePlaceholder: `Capture messages mentioning ${customer.name}, customer outcomes, praise, metrics, or objections overcome.`,
-    },
-    'Manual upload': {
-      first: 'Inbox name',
-      firstPlaceholder: `${customer.name} backfill`,
-      second: 'Accepted formats',
-      secondPlaceholder: 'PDF, DOCX, CSV, TXT, screenshots',
-      rule: 'Processing instruction',
-      rulePlaceholder: 'Extract outcomes, quotes, metrics, objections, personas, and approval status.',
-    },
-  }
-  const fields = copy[type]
-
-  return (
-    <div className="capture-form">
-      <label>
-        <span>{fields.first}</span>
-        <input value={draft.matchTarget} onChange={(event) => setDraft({ ...draft, matchTarget: event.target.value })} placeholder={fields.firstPlaceholder} />
-      </label>
-      <label>
-        <span>{fields.second}</span>
-        <input value={draft.provider} onChange={(event) => setDraft({ ...draft, provider: event.target.value })} placeholder={fields.secondPlaceholder} />
-      </label>
-      <label className="wide-field">
-        <span>{fields.rule}</span>
-        <textarea rows={2} value={draft.rule} onChange={(event) => setDraft({ ...draft, rule: event.target.value })} placeholder={fields.rulePlaceholder} />
-      </label>
-    </div>
-  )
-}
-
 function iconFor(type: InteractionType) {
   if (type === 'Email') return <Mail size={16} />
   if (type === 'Meeting') return <MessageSquareText size={16} />
@@ -5266,10 +4771,6 @@ function ChipRow({ label, items }: { label: string; items: string[] }) {
       )}
     </div>
   )
-}
-
-function Insight({ title, detail }: { title: string; detail: string }) {
-  return <article className="insight"><CheckCircle2 size={18} /><div><strong>{title}</strong><p>{detail}</p></div></article>
 }
 
 export default App
